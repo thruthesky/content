@@ -74,9 +74,9 @@ python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" sites
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" categories --site-id 1
 ```
 
-### Step 2.5: AI Pre-flight Topic Workflow (Plan → Reserve → Generate → Submit)
+### Step 2.5: AI Pre-flight Topic Workflow (Plan → Reserve → Generate → **Score** → Submit)
 
-**When AI is generating content**, do not waste tokens by drafting first and being rejected later. Always run this 4-step handshake with the server **before** any web search or LLM drafting:
+**When AI is generating content**, do not waste tokens by drafting first and being rejected later, and do not pollute the site with low-quality posts. Always run this **5-step handshake** with the server. Steps 1–3 are cheap API calls. Step 4 is the expensive LLM/web-search work — it runs **only after** a successful reservation. Step 5 is a self-evaluation gate that **must pass at ≥ 90/100** before submission.
 
 1. **Plan** — Call `topic-coverage` to see which `topic_slug`s the current user has already used.
    ```bash
@@ -93,21 +93,53 @@ python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" categories --site-id
    python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" \
      topic-reserve --topic-slug "ph-cebu-diving" [--category-id 3] [--ttl-minutes 30]
    ```
-4. **Generate + Submit** — ONLY after a successful reservation, run web search, draft the article, and submit with `--topic-slug` and `--reservation-id`.
+4. **Generate** — ONLY after a successful reservation, do the expensive work: gather **≥ 20 distinct web sources**, draft the article, format it (HTML or markdown).
+5. **Score & Submit** — Apply the **Content Quality Score rubric** in [references/content-quality-score.md](references/content-quality-score.md). Submit **only if the total score ≥ 90/100 AND every gate passes**. Otherwise revise (max 2 retries) or abandon the reservation.
    ```bash
+   # only after rubric passes:
    python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" \
      create --title "..." --content "..." --category-id 3 \
      --topic-slug "ph-cebu-diving" --reservation-id 889
    ```
 
+**The 90/100 quality gate is mandatory.** A reserved-but-low-quality post is worse than no post — it consumes the slug permanently for this user (the reservation locks the slug after submission). If three drafts (1 original + 2 revisions) cannot reach 90, **do not submit**; let the reservation expire and pick a different topic.
+
 **Rules of the system:**
 - Uniqueness is enforced **per user**: user A and user B can each post the same topic once; user A cannot post the same `topic_slug` (or the same normalized title+content) twice.
-- Posts **without** `topic_slug` are treated as normal human posts and are **not** subject to duplicate prevention (e.g. a user re-listing the same sale post every day is allowed).
+- Posts **without** `topic_slug` are treated as normal human posts and are **not** subject to duplicate prevention or the score gate (e.g. a user re-listing the same sale post every day is allowed).
 - `content_hash` is computed server-side (SHA-256 of NFC-normalized title+content) and is only stored/checked when `topic_slug` is present.
 - Reservations expire automatically after TTL; the next `topic-reserve` call for the same slug cleans up expired rows before inserting a new one.
 - `409 Conflict` means the slug or the content hash is already in use for this user — catch it, pick a different topic, retry.
 
-Only when topic-reserve returns 201 should the AI spend real tokens on web search and drafting.
+Only when topic-reserve returns 201 should the AI spend real tokens on web search and drafting. Only when the rubric returns total ≥ 90 should the AI call `POST /posts`.
+
+#### Quality Score — quick summary
+
+100 points across 6 categories (full rubric, gates, and revision guidance: [references/content-quality-score.md](references/content-quality-score.md)):
+
+| Category | Max | What it measures |
+|----------|----:|------------------|
+| Originality & Uniqueness | 20 | Genuinely new framing/analysis vs. rehashed search results |
+| Depth & Substance | 20 | Concrete numbers, comparisons, trade-offs vs. surface definitions |
+| Accuracy & Verifiability | 15 | Sourced, current facts vs. unsupported or stale claims |
+| Structure & Readability | 15 | Clear sections, short paragraphs, lists/tables where they help |
+| Reader Value | 20 | Tailored to Korean expat audience, actionable, locally relevant |
+| Polish | 10 | No typos, natural Korean, no machine-translation artifacts |
+
+**Pass requirement:** `total ≥ 90` AND all 7 gates (G1–G7) pass — sources ≥ 20, words ≥ 800 (or ≥ 1500 KO chars), sections ≥ 5, topic match, slug available, language coherent, valid HTML.
+
+**On failure:**
+1. Identify `weak_areas` (categories that scored below the "Good" band)
+2. Revise **only those areas** — do not rewrite from scratch on round 1
+3. Re-score
+4. Max 2 revisions; if still < 90, abandon the reservation (let it expire) and pick another topic
+
+The AI must keep an internal scorecard JSON like:
+```json
+{ "scores": { "originality":18, "depth":17, "accuracy":14, "structure":13, "reader_value":19, "polish":9 },
+  "total": 90, "pass": true, "weak_areas": [], "revision_round": 0 }
+```
+Inflating scores defeats the purpose. Score honestly; if it fails, revise or abandon.
 
 ### Step 3: Execute the content task
 
@@ -256,5 +288,6 @@ POST   /topics/check                   — Batch-check availability of candidate
 ## Detailed API Documentation
 
 - **Auth/User API** (registration, login, profile update, avatar, blocking): [references/api-auth.md](references/api-auth.md)
-- **Content API** (posts, comments, likes, bookmarks, reactions): [references/api-content.md](references/api-content.md)
+- **Content API** (posts, comments, likes, bookmarks, reactions, AI topic reservation): [references/api-content.md](references/api-content.md)
 - **System API** (file upload, sites, categories, notifications, search, reports): [references/api-system.md](references/api-system.md)
+- **Content Quality Score Rubric** (mandatory ≥ 90/100 self-evaluation gate before `POST /posts` for AI-generated content): [references/content-quality-score.md](references/content-quality-score.md)
