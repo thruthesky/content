@@ -200,7 +200,45 @@ def cmd_create(args):
         data["site_id"] = args.site_id
     if args.upload_ids:
         data["upload_ids"] = [int(x.strip()) for x in args.upload_ids.split(",")]
+    if getattr(args, "topic_slug", None):
+        data["topic_slug"] = args.topic_slug
+    if getattr(args, "reservation_id", None):
+        data["reservation_id"] = args.reservation_id
     result = api_request("POST", "/posts", args.api_key, data=data)
+    output(result)
+
+
+# --- AI Topic Reservation ---
+# Pre-flight topic check/reserve so AI does not waste tokens generating duplicates.
+# Flow: topic-coverage (list mine) -> topic-check (batch status) -> topic-reserve (atomic lock)
+# -> create(topic_slug + reservation_id) -> reservation auto-consumed on successful post.
+
+def cmd_topic_coverage(args):
+    """List my posts that carry a topic_slug (paginated)."""
+    params = {
+        "category_id": args.category_id,
+        "page": args.page,
+        "per_page": args.per_page,
+    }
+    result = api_request("GET", "/me/topic-coverage", args.api_key, params=params)
+    output(result)
+
+
+def cmd_topic_reserve(args):
+    """Atomically reserve a topic_slug for the current user."""
+    data = {"topic_slug": args.topic_slug}
+    if args.category_id is not None:
+        data["category_id"] = args.category_id
+    if args.ttl_minutes is not None:
+        data["ttl_minutes"] = args.ttl_minutes
+    result = api_request("POST", "/topics/reserve", args.api_key, data=data)
+    output(result)
+
+
+def cmd_topic_check(args):
+    """Batch-check availability of candidate topic_slugs (dry run, no reservation)."""
+    slugs = [s.strip() for s in args.topic_slugs.split(",") if s.strip()]
+    result = api_request("POST", "/topics/check", args.api_key, data={"topic_slugs": slugs})
     output(result)
 
 
@@ -343,6 +381,8 @@ def main():
     p.add_argument("--category-id", type=int)
     p.add_argument("--site-id", type=int)
     p.add_argument("--upload-ids", help="Comma-separated upload IDs (e.g., 10,11)")
+    p.add_argument("--topic-slug", help="AI duplicate-prevention slug (optional)")
+    p.add_argument("--reservation-id", type=int, help="topic_reservations.id from topic-reserve (optional)")
 
     # Update post
     p = sub.add_parser("update", help="Update a post")
@@ -398,6 +438,20 @@ def main():
     p = sub.add_parser("docs", help="Fetch API documentation")
     p.add_argument("--category", help="Filter: auth, user, post, comment, file, site, category")
 
+    # AI topic reservation — pre-flight duplicate check/reserve for AI content generation.
+    p = sub.add_parser("topic-coverage", help="List my posts that carry a topic_slug (AI duplicate-prevention)")
+    p.add_argument("--category-id", type=int)
+    p.add_argument("--page", type=int, default=1)
+    p.add_argument("--per-page", type=int, default=50)
+
+    p = sub.add_parser("topic-reserve", help="Atomically reserve a topic_slug before generating content")
+    p.add_argument("--topic-slug", required=True)
+    p.add_argument("--category-id", type=int)
+    p.add_argument("--ttl-minutes", type=int)
+
+    p = sub.add_parser("topic-check", help="Batch-check availability of candidate topic_slugs (dry run)")
+    p.add_argument("--topic-slugs", required=True, help="Comma-separated slugs (e.g. slug-a,slug-b)")
+
     args = parser.parse_args()
 
     # Apply --base-url
@@ -422,6 +476,9 @@ def main():
         "sites": cmd_sites,
         "categories": cmd_categories,
         "docs": cmd_docs,
+        "topic-coverage": cmd_topic_coverage,
+        "topic-reserve": cmd_topic_reserve,
+        "topic-check": cmd_topic_check,
     }
     commands[args.command](args)
 

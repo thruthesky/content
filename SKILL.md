@@ -1,5 +1,5 @@
 ---
-name: korea
+name: content
 description: "Complete content management via Korea SNS (withcenter.com) REST API. API key based authentication (Authorization: Bearer). Supports user registration/login/profile updates, post CRUD, comment CRUD, file (image) uploads, site/category lookup and management, likes/bookmarks/reactions, notifications, and search. A complete API guide for external programs, AI, and software to create, update, and delete content on Korea SNS. Use when Claude performs the following tasks: (1) Korea SNS registration/login/API key retrieval (2) User profile update/avatar upload (3) Post create/update/delete/list (4) Comment create/update/delete (5) Upload images and files and attach them to posts/comments (6) Site list/category tree lookup (7) Toggle like/bookmark/reaction (8) Notifications lookup/search (9) withcenter.com API calls (10) Automatic API documentation lookup (GET /docs). Keywords: Korea SNS, withcenter, post, posts, writing, post registration, post update, post deletion, comment, comments, registration, login, profile, avatar, file upload, image, category, site, like, bookmark, reaction, notification, search, API, api_key"
 ---
 
@@ -74,6 +74,41 @@ python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" sites
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" categories --site-id 1
 ```
 
+### Step 2.5: AI Pre-flight Topic Workflow (Plan → Reserve → Generate → Submit)
+
+**When AI is generating content**, do not waste tokens by drafting first and being rejected later. Always run this 4-step handshake with the server **before** any web search or LLM drafting:
+
+1. **Plan** — Call `topic-coverage` to see which `topic_slug`s the current user has already used.
+   ```bash
+   python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" \
+     topic-coverage [--category-id 3] [--per-page 100]
+   ```
+2. **Check (optional)** — Batch-check candidate slugs before reserving. Returns `available` / `taken_by_post` / `reserved_active`.
+   ```bash
+   python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" \
+     topic-check --topic-slugs "ph-cebu-diving,ph-palawan-elnido,ph-bohol-tarsier"
+   ```
+3. **Reserve** — Atomically lock ONE slug for up to TTL minutes (default 30, range 1–120). If 409, pick the next candidate.
+   ```bash
+   python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" \
+     topic-reserve --topic-slug "ph-cebu-diving" [--category-id 3] [--ttl-minutes 30]
+   ```
+4. **Generate + Submit** — ONLY after a successful reservation, run web search, draft the article, and submit with `--topic-slug` and `--reservation-id`.
+   ```bash
+   python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" \
+     create --title "..." --content "..." --category-id 3 \
+     --topic-slug "ph-cebu-diving" --reservation-id 889
+   ```
+
+**Rules of the system:**
+- Uniqueness is enforced **per user**: user A and user B can each post the same topic once; user A cannot post the same `topic_slug` (or the same normalized title+content) twice.
+- Posts **without** `topic_slug` are treated as normal human posts and are **not** subject to duplicate prevention (e.g. a user re-listing the same sale post every day is allowed).
+- `content_hash` is computed server-side (SHA-256 of NFC-normalized title+content) and is only stored/checked when `topic_slug` is present.
+- Reservations expire automatically after TTL; the next `topic-reserve` call for the same slug cleans up expired rows before inserting a new one.
+- `409 Conflict` means the slug or the content hash is already in use for this user — catch it, pick a different topic, retry.
+
+Only when topic-reserve returns 201 should the AI spend real tokens on web search and drafting.
+
 ### Step 3: Execute the content task
 
 Include `--base-url "https://<domain>/api/v1"` in every command.
@@ -130,6 +165,40 @@ curl -s -X POST https://withcenter.com/api/v1/posts \
   -d '{"title": "Photo post", "content": "Content", "upload_ids": [10, 11]}'
 ```
 
+## Data / Information Collection
+
+When the user's prompt requires collecting information, research, facts, news, references, or background material before creating/updating content, you **MUST** gather data from a **minimum of 20 different sites (web pages)** before writing.
+
+### Rules
+
+1. **Minimum 20 sources**: Do not produce content until you have collected information from at least 20 distinct web pages. Fewer sources is not acceptable — expand the search until this threshold is met.
+2. **Primary tools**: Use the `WebSearch` tool to discover candidate sources, and use the `WebFetch` tool to retrieve the full content of each page.
+3. **Fallback to curl**: If `WebFetch` is unavailable, blocked, or fails, use `curl` via the Bash tool to fetch the page. Always include a realistic `User-Agent` header (e.g., `-H "User-Agent: Mozilla/5.0 (compatible; KoreaSNS-CLI/1.0)"`).
+4. **Source diversity**: Prefer different domains over multiple pages from the same site. Aim for a mix of official/primary sources, news outlets, community discussions, and reference material relevant to the user's topic.
+5. **Recency**: Prioritize recent sources when the topic is time-sensitive (news, prices, events, releases, etc.).
+6. **De-duplicate**: If two pages contain substantially the same content (syndicated articles, mirrors), count them as a single source and keep searching.
+7. **Record sources**: Keep track of the URLs you consulted so they can be cited or referenced in the final post/comment when appropriate.
+8. **Synthesize, don't copy**: Combine and paraphrase findings into original content. Do not paste copyrighted text verbatim.
+
+### Workflow
+
+```
+1. Parse the user's prompt → extract key topics / keywords / questions.
+2. Run WebSearch with multiple query variations to build a candidate URL list (target ≥ 30 URLs so that after filtering you still have ≥ 20 usable pages).
+3. For each URL, call WebFetch (or curl as fallback) and extract the relevant facts.
+4. Continue until at least 20 distinct, useful pages have been successfully read.
+5. Synthesize the collected information into the post/comment body.
+6. Call the Korea SNS content APIs (create/update) with the finished content.
+```
+
+### curl fallback example
+
+```bash
+curl -sL "https://example.com/article" \
+  -H "User-Agent: Mozilla/5.0 (compatible; KoreaSNS-CLI/1.0)" \
+  -H "Accept: text/html,application/xhtml+xml"
+```
+
 ## Notes
 
 1. **User-Agent required**: Cloudflare WAF blocks requests without a User-Agent. When using curl, `-H "User-Agent: KoreaSNS-CLI/1.0"` is required.
@@ -178,6 +247,10 @@ POST   /posts/{id}/reactions           — Toggle reaction
 
 GET    /notifications                  — List notifications
 GET    /search                         — Full-text search
+
+GET    /me/topic-coverage              — List my posts that carry a topic_slug (AI duplicate prevention)
+POST   /topics/reserve                 — Atomically reserve a topic_slug (TTL 30m default)
+POST   /topics/check                   — Batch-check availability of candidate topic_slugs (dry run)
 ```
 
 ## Detailed API Documentation
