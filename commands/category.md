@@ -1,69 +1,69 @@
 ---
 name: category
-description: "Korea SNS 특정 사이트의 카테고리 목록을 조회한다. 사이트 이름 또는 도메인을 지정하여 해당 사이트에 어떤 게시판(카테고리)이 있는지 확인한다. 예: '/korea:category bangphil.com', '/korea:category 방필'. 카테고리 목록, 게시판 목록, 사이트 카테고리 조회 시 사용."
+description: "List categories of a specific Korea SNS site. Specify the site name or domain to see which boards (categories) exist on that site. Examples: '/korea:category bangphil.com', '/korea:category bangphil'. Use when looking up category lists, board lists, or site categories."
 ---
 
-# /korea:category — 사이트 카테고리 조회
+# /korea:category — List Site Categories
 
-특정 사이트의 카테고리(게시판) 목록을 트리 형태로 조회한다.
+List the categories (boards) of a specific site as a tree.
 
-## 명령어 형식
+## Command Format
 
 ```
-/korea:category <사이트 이름 또는 도메인>
+/korea:category <site name or domain>
 ```
 
-**첫 번째 파라미터(사이트 이름 또는 도메인)는 필수이다.** 입력하지 않으면 작업을 중단하고 사용자에게 안내한다.
+**The first parameter (site name or domain) is required.** If it is missing, abort the task and guide the user.
 
-## 사용 예시
+## Usage Examples
 
 ```
 /korea:category bangphil.com
 /korea:category withcenter.com
-/korea:category 방필
+/korea:category bangphil
 ```
 
-## 실행 절차
+## Execution Procedure
 
-### 1단계: 필수 파라미터 확인
+### Step 1: Validate required parameters
 
-ARGUMENTS에서 사이트 이름 또는 도메인을 추출한다.
+Extract the site name or domain from ARGUMENTS.
 
-**파라미터가 없는 경우 즉시 작업을 중단하고 다음을 안내한다:**
+**If the parameter is missing, immediately abort and show this guide:**
 
 ```
-사이트 이름 또는 도메인을 입력해주세요.
-사용법: /korea:category <사이트 이름 또는 도메인>
-예시: /korea:category bangphil.com
+Please enter a site name or domain.
+Usage: /korea:category <site name or domain>
+Example: /korea:category bangphil.com
 ```
 
-### 2단계: 사이트 ID 확인
+### Step 2: Resolve the site ID
 
-사이트 목록에서 입력된 이름/도메인과 일치하는 사이트를 찾는다.
+Find the site that matches the entered name/domain in the site list.
 
 ```bash
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" sites
 ```
 
-일치하는 사이트가 없으면 사용 가능한 사이트 목록을 보여주고 작업을 중단한다.
+If no match is found, show the available sites and abort.
 
-### 3단계: 카테고리 트리 조회
+### Step 3: Fetch the category tree
 
 ```bash
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" categories --site-id {SITE_ID}
 ```
 
-### 4단계: 결과를 보기 좋게 표시
+### Step 4: Present the result nicely
 
-카테고리 트리를 계층 구조로 표시한다. 각 카테고리의 ID, 이름, 타입, 아이콘을 포함한다.
+Display the category tree in a hierarchical layout. Include each category's ID, name, type, and icon.
 
-출력 예시:
+Output example:
 ```
-📁 bangphil.com 카테고리 목록:
+Categories of bangphil.com:
 
-  1. 자유게시판 (ID: 1, type: forum)
-     ├── 일상 (ID: 5)
-     └── 맛집 (ID: 6)
-  2. 공지사항 (ID: 2, type: forum)
-  3. 질문답변 (ID: 3, type: forum)
+  1. Free Board (ID: 1, type: forum)
+     ├── Daily (ID: 5)
+     └── Restaurants (ID: 6)
+  2. Announcements (ID: 2, type: forum)
+  3. Q&A (ID: 3, type: forum)
 ```

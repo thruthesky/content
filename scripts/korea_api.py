@@ -1,42 +1,42 @@
 #!/usr/bin/env python3
-"""Korea SNS API 클라이언트 — 완전한 콘텐츠 관리 스크립트.
+"""Korea SNS API client — complete content management script.
 
-사용법:
-  # 회원가입
-  python3 korea_api.py --api-key "" register --email "user@example.com" --password "pass123" [--display-name "이름"]
+Usage:
+  # Register
+  python3 korea_api.py --api-key "" register --email "user@example.com" --password "pass123" [--display-name "Name"]
 
-  # 로그인하여 API 키 획득
+  # Login to obtain an API key
   python3 korea_api.py --api-key "" login --email "user@example.com" --password "pass"
 
-  # 내 정보 조회
+  # Get my info
   python3 korea_api.py --api-key KEY me
 
-  # 프로필 수정
-  python3 korea_api.py --api-key KEY update-profile [--display-name "이름"] [--bio "소개"]
+  # Update profile
+  python3 korea_api.py --api-key KEY update-profile [--display-name "Name"] [--bio "Bio"]
 
-  # 아바타 업로드
+  # Upload avatar
   python3 korea_api.py --api-key KEY upload-avatar --file "/path/to/avatar.jpg"
 
-  # 파일 업로드
+  # Upload file
   python3 korea_api.py --api-key KEY upload --file "/path/to/image.jpg"
 
-  # 게시글 CRUD
-  python3 korea_api.py --api-key KEY create --title "제목" --content "내용" [--category-id 3] [--site-id 1] [--upload-ids "10,11"]
-  python3 korea_api.py --api-key KEY update --id 1 --title "새제��" --content "새내용" [--upload-ids "12"]
+  # Post CRUD
+  python3 korea_api.py --api-key KEY create --title "Title" --content "Content" [--category-id 3] [--site-id 1] [--upload-ids "10,11"]
+  python3 korea_api.py --api-key KEY update --id 1 --title "New title" --content "New content" [--upload-ids "12"]
   python3 korea_api.py --api-key KEY delete --id 1
   python3 korea_api.py --api-key KEY get    --id 1
   python3 korea_api.py --api-key KEY list   [--page 1] [--per-page 10] [--category free] [--site-id 1]
 
-  # 댓글
-  python3 korea_api.py --api-key KEY comment-create --post-id 1 --content "댓글" [--parent-id 5] [--upload-ids "10"]
-  python3 korea_api.py --api-key KEY comment-update --comment-id 1 --content "수정"
+  # Comment
+  python3 korea_api.py --api-key KEY comment-create --post-id 1 --content "Comment" [--parent-id 5] [--upload-ids "10"]
+  python3 korea_api.py --api-key KEY comment-update --comment-id 1 --content "Updated"
   python3 korea_api.py --api-key KEY comment-delete --comment-id 1
 
-  # 사이트/카테고리
+  # Sites / categories
   python3 korea_api.py --api-key KEY sites [--page 1]
   python3 korea_api.py --api-key KEY categories --site-id 1
 
-  # API 문서 조회
+  # API documentation
   python3 korea_api.py --api-key "" docs [--category post]
 """
 
@@ -52,12 +52,12 @@ import uuid
 from typing import Optional
 
 DEFAULT_BASE_URL = "https://withcenter.com/api/v1"
-# --base-url 옵션으로 변경 가능 (서브사이트: https://apple.withcenter.com/api/v1)
+# Overridable with --base-url (subsite: https://apple.withcenter.com/api/v1)
 BASE_URL = DEFAULT_BASE_URL
 
 
 def api_request(method: str, path: str, api_key: str, data: Optional[dict] = None, params: Optional[dict] = None) -> dict:
-    """API 요청을 보내고 JSON 응답을 반환한다."""
+    """Send an API request and return the JSON response."""
     url = f"{BASE_URL}{path}"
 
     if params:
@@ -86,7 +86,7 @@ def api_request(method: str, path: str, api_key: str, data: Optional[dict] = Non
 
 
 def multipart_upload(path: str, api_key: str, file_path: str) -> dict:
-    """multipart/form-data로 파일을 업로드한다."""
+    """Upload a file as multipart/form-data."""
     url = f"{BASE_URL}{path}"
     boundary = uuid.uuid4().hex
 
@@ -120,44 +120,44 @@ def multipart_upload(path: str, api_key: str, file_path: str) -> dict:
 
 
 def output(result: dict):
-    """JSON 결과를 출력한다."""
+    """Print the JSON result."""
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
-# --- 인증 ---
+# --- Authentication ---
 
 def cmd_register(args):
-    """회원가입."""
+    """Register."""
     data = {"email": args.email, "password": args.password}
     if args.display_name:
         data["display_name"] = args.display_name
     result = api_request("POST", "/auth/register", "", data=data)
     output(result)
     if "data" in result and "api_key" in result.get("data", {}):
-        print(f"\n# API 키: {result['data']['api_key']}", file=sys.stderr)
-        print("# 이후 요청에 --api-key 옵션으로 사용하세요.", file=sys.stderr)
+        print(f"\n# API key: {result['data']['api_key']}", file=sys.stderr)
+        print("# Use it with the --api-key option in subsequent requests.", file=sys.stderr)
 
 
 def cmd_login(args):
-    """로��인하여 API 키를 획득한다."""
+    """Log in and obtain an API key."""
     data = {"email": args.email, "password": args.password}
     result = api_request("POST", "/auth/login", "", data=data)
     output(result)
     if "data" in result and "api_key" in result.get("data", {}):
-        print(f"\n# API 키: {result['data']['api_key']}", file=sys.stderr)
-        print("# 이후 요청에 --api-key 옵션으로 사용하세요.", file=sys.stderr)
+        print(f"\n# API key: {result['data']['api_key']}", file=sys.stderr)
+        print("# Use it with the --api-key option in subsequent requests.", file=sys.stderr)
 
 
-# --- 사용자 ---
+# --- User ---
 
 def cmd_me(args):
-    """내 정보 조회."""
+    """Get my info."""
     result = api_request("GET", "/me", args.api_key)
     output(result)
 
 
 def cmd_update_profile(args):
-    """프로필 수정."""
+    """Update profile."""
     data = {}
     if args.display_name:
         data["display_name"] = args.display_name
@@ -166,33 +166,33 @@ def cmd_update_profile(args):
     if args.username:
         data["username"] = args.username
     if not data:
-        print('{"message": "수정할 내용이 없습니다."}')
+        print('{"message": "No fields to update."}')
         sys.exit(1)
     result = api_request("PATCH", "/me", args.api_key, data=data)
     output(result)
 
 
 def cmd_upload_avatar(args):
-    """아바타 업로드."""
+    """Upload avatar."""
     result = multipart_upload("/me/avatar", args.api_key, args.file)
     output(result)
 
 
-# --- 파일 업로드 ---
+# --- File upload ---
 
 def cmd_upload(args):
-    """파일 업로드."""
+    """Upload file."""
     result = multipart_upload("/files/upload", args.api_key, args.file)
     output(result)
     if "data" in result and "id" in result.get("data", {}):
-        print(f"\n# 업로드 ID: {result['data']['id']}", file=sys.stderr)
-        print("# 게시글/댓글 생성 시 --upload-ids 옵션으로 사용하세요.", file=sys.stderr)
+        print(f"\n# Upload ID: {result['data']['id']}", file=sys.stderr)
+        print("# Use it with the --upload-ids option when creating a post/comment.", file=sys.stderr)
 
 
-# --- 게시글 ---
+# --- Post ---
 
 def cmd_create(args):
-    """���시글 생성."""
+    """Create a post."""
     data = {"title": args.title, "content": args.content}
     if args.category_id:
         data["category_id"] = args.category_id
@@ -205,7 +205,7 @@ def cmd_create(args):
 
 
 def cmd_update(args):
-    """게시글 수정."""
+    """Update a post."""
     data = {}
     if args.title:
         data["title"] = args.title
@@ -216,26 +216,26 @@ def cmd_update(args):
     if args.upload_ids:
         data["upload_ids"] = [int(x.strip()) for x in args.upload_ids.split(",")]
     if not data:
-        print('{"message": "수정할 내용이 없습니다."}')
+        print('{"message": "No fields to update."}')
         sys.exit(1)
     result = api_request("PUT", f"/posts/{args.id}", args.api_key, data=data)
     output(result)
 
 
 def cmd_delete(args):
-    """게시글 삭제."""
+    """Delete a post."""
     result = api_request("DELETE", f"/posts/{args.id}", args.api_key)
     output(result)
 
 
 def cmd_get(args):
-    """게시글 상세 조회."""
+    """Get post details."""
     result = api_request("GET", f"/posts/{args.id}", args.api_key)
     output(result)
 
 
 def cmd_list(args):
-    """게���글 목록 조회."""
+    """List posts."""
     params = {
         "page": args.page,
         "per_page": args.per_page,
@@ -247,10 +247,10 @@ def cmd_list(args):
     output(result)
 
 
-# --- 댓글 ---
+# --- Comment ---
 
 def cmd_comment_create(args):
-    """댓글 생성."""
+    """Create a comment."""
     data = {"content": args.content}
     if args.parent_id:
         data["parent_id"] = args.parent_id
@@ -261,7 +261,7 @@ def cmd_comment_create(args):
 
 
 def cmd_comment_update(args):
-    """��글 수정."""
+    """Update a comment."""
     data = {"content": args.content}
     if args.upload_ids:
         data["upload_ids"] = [int(x.strip()) for x in args.upload_ids.split(",")]
@@ -270,30 +270,30 @@ def cmd_comment_update(args):
 
 
 def cmd_comment_delete(args):
-    """댓글 삭제."""
+    """Delete a comment."""
     result = api_request("DELETE", f"/comments/{args.comment_id}", args.api_key)
     output(result)
 
 
-# --- 사이트/카테고리 ---
+# --- Sites / Categories ---
 
 def cmd_sites(args):
-    """사이트 목록 조회."""
+    """List sites."""
     params = {"page": args.page, "per_page": args.per_page}
     result = api_request("GET", "/sites", args.api_key, params=params)
     output(result)
 
 
 def cmd_categories(args):
-    """카테고리 트리 조회."""
+    """Get the category tree."""
     result = api_request("GET", f"/sites/{args.site_id}/categories/tree", args.api_key)
     output(result)
 
 
-# --- API 문서 ---
+# --- API documentation ---
 
 def cmd_docs(args):
-    """API 문서 조회."""
+    """Fetch API documentation."""
     params = {}
     if args.category:
         params["category"] = args.category
@@ -302,105 +302,105 @@ def cmd_docs(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Korea SNS API 클라이언트")
-    parser.add_argument("--api-key", required=True, help="API 키")
+    parser = argparse.ArgumentParser(description="Korea SNS API client")
+    parser.add_argument("--api-key", required=True, help="API key")
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL,
-                        help="API Base URL (기본: https://withcenter.com/api/v1, 서브사이트: https://<도메인>/api/v1)")
+                        help="API base URL (default: https://withcenter.com/api/v1, subsite: https://<domain>/api/v1)")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    # 회원가입
-    p = sub.add_parser("register", help="회원가입")
+    # Register
+    p = sub.add_parser("register", help="Register")
     p.add_argument("--email", required=True)
     p.add_argument("--password", required=True)
     p.add_argument("--display-name")
 
-    # 로그인
-    p = sub.add_parser("login", help="로그인하여 API 키 획득")
+    # Login
+    p = sub.add_parser("login", help="Log in and obtain an API key")
     p.add_argument("--email", required=True)
     p.add_argument("--password", required=True)
 
-    # 내 정보
-    sub.add_parser("me", help="내 정보 조회")
+    # Me
+    sub.add_parser("me", help="Get my info")
 
-    # 프로필 수정
-    p = sub.add_parser("update-profile", help="프로필 수정")
+    # Update profile
+    p = sub.add_parser("update-profile", help="Update profile")
     p.add_argument("--display-name")
     p.add_argument("--bio")
     p.add_argument("--username")
 
-    # 아바타 업로드
-    p = sub.add_parser("upload-avatar", help="아바타 업로드")
-    p.add_argument("--file", required=True, help="이미지 파일 경로")
+    # Upload avatar
+    p = sub.add_parser("upload-avatar", help="Upload avatar")
+    p.add_argument("--file", required=True, help="Path to the image file")
 
-    # 파일 업로드
-    p = sub.add_parser("upload", help="파일 업로드")
-    p.add_argument("--file", required=True, help="업로드할 파일 경로")
+    # Upload file
+    p = sub.add_parser("upload", help="Upload file")
+    p.add_argument("--file", required=True, help="Path to the file to upload")
 
-    # 게시글 생성
-    p = sub.add_parser("create", help="게시�� 생성")
+    # Create post
+    p = sub.add_parser("create", help="Create a post")
     p.add_argument("--title", required=True)
     p.add_argument("--content", required=True)
     p.add_argument("--category-id", type=int)
     p.add_argument("--site-id", type=int)
-    p.add_argument("--upload-ids", help="쉼표 구분 업로드 ID (예: 10,11)")
+    p.add_argument("--upload-ids", help="Comma-separated upload IDs (e.g., 10,11)")
 
-    # 게시글 수정
-    p = sub.add_parser("update", help="게시글 수정")
+    # Update post
+    p = sub.add_parser("update", help="Update a post")
     p.add_argument("--id", required=True, type=int)
     p.add_argument("--title")
     p.add_argument("--content")
     p.add_argument("--category-id", type=int)
-    p.add_argument("--upload-ids", help="쉼표 구분 업로드 ID")
+    p.add_argument("--upload-ids", help="Comma-separated upload IDs")
 
-    # 게시글 삭제
-    p = sub.add_parser("delete", help="게시글 삭제")
+    # Delete post
+    p = sub.add_parser("delete", help="Delete a post")
     p.add_argument("--id", required=True, type=int)
 
-    # 게시글 조회
-    p = sub.add_parser("get", help="게시글 상�� 조회")
+    # Get post
+    p = sub.add_parser("get", help="Get post details")
     p.add_argument("--id", required=True, type=int)
 
-    # 게시글 목록
-    p = sub.add_parser("list", help="��시글 목록 조회")
+    # List posts
+    p = sub.add_parser("list", help="List posts")
     p.add_argument("--page", type=int, default=1)
     p.add_argument("--per-page", type=int, default=10)
     p.add_argument("--category")
     p.add_argument("--site-id", type=int)
     p.add_argument("--order-by")
 
-    # 댓글 생성
-    p = sub.add_parser("comment-create", help="댓글 생성")
+    # Create comment
+    p = sub.add_parser("comment-create", help="Create a comment")
     p.add_argument("--post-id", required=True, type=int)
     p.add_argument("--content", required=True)
     p.add_argument("--parent-id", type=int)
-    p.add_argument("--upload-ids", help="쉼표 구분 업로드 ID")
+    p.add_argument("--upload-ids", help="Comma-separated upload IDs")
 
-    # 댓글 수정
-    p = sub.add_parser("comment-update", help="댓글 ��정")
+    # Update comment
+    p = sub.add_parser("comment-update", help="Update a comment")
     p.add_argument("--comment-id", required=True, type=int)
     p.add_argument("--content", required=True)
-    p.add_argument("--upload-ids", help="쉼표 구분 업로드 ID")
+    p.add_argument("--upload-ids", help="Comma-separated upload IDs")
 
-    # 댓글 삭��
-    p = sub.add_parser("comment-delete", help="댓글 삭제")
+    # Delete comment
+    p = sub.add_parser("comment-delete", help="Delete a comment")
     p.add_argument("--comment-id", required=True, type=int)
 
-    # 사이트 목록
-    p = sub.add_parser("sites", help="사이트 목록 조회")
+    # List sites
+    p = sub.add_parser("sites", help="List sites")
     p.add_argument("--page", type=int, default=1)
     p.add_argument("--per-page", type=int, default=10)
 
-    # 카테고리 트리
-    p = sub.add_parser("categories", help="카테고리 트리 조회")
+    # Category tree
+    p = sub.add_parser("categories", help="Get the category tree")
     p.add_argument("--site-id", required=True, type=int)
 
-    # API 문서
-    p = sub.add_parser("docs", help="API 문서 조회")
-    p.add_argument("--category", help="필터: auth, user, post, comment, file, site, category")
+    # API documentation
+    p = sub.add_parser("docs", help="Fetch API documentation")
+    p.add_argument("--category", help="Filter: auth, user, post, comment, file, site, category")
 
     args = parser.parse_args()
 
-    # --base-url 옵션 적용
+    # Apply --base-url
     global BASE_URL
     BASE_URL = args.base_url
 

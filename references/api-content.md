@@ -1,19 +1,19 @@
-# 콘텐츠 API (게시글, 댓글, 좋아요, 북마크, 리액션)
+# Content API (posts, comments, likes, bookmarks, reactions)
 
-> 상위 문서: [SKILL.md](../SKILL.md) — 인증 방식은 [api-auth.md](api-auth.md) 참조
+> Parent document: [SKILL.md](../SKILL.md) — see [api-auth.md](api-auth.md) for authentication
 
-## 핵심 개념
+## Core Concepts
 
-Korea SNS의 콘텐츠 API. 게시글(posts)과 댓글(comments)의 생성/조회/수정/삭제, 좋아요, 북마크, 리액션을 제공한다.
-모든 쓰기 작업은 `Authorization: Bearer {API_KEY}` 헤더로 인증 필수.
+The Korea SNS content API. It provides create/read/update/delete for posts and comments, plus likes, bookmarks, and reactions.
+All write operations require authentication via the `Authorization: Bearer {API_KEY}` header.
 
-## 핵심 로직
+## Core Logic
 
-- 게시글: `title`과 `content` 필수. `category_id`로 카테고리 지정 가능.
-- 수정/삭제: 본인 글 또는 사이트 관리자만 가능.
-- 삭제: 소프트 삭제 (`deleted_at` 설정, 복구 불가).
-- 댓글: 대댓글 최대 6단계. 게시글/부모 댓글 작성자에게 자동 알림.
-- 파일 첨부: 파일을 먼저 업로드(POST /files/upload)한 후, 반환된 `id`를 `upload_ids` 배열로 전달.
+- Posts: `title` and `content` are required. `category_id` can be specified to set a category.
+- Update/Delete: Only the author or a site administrator can perform them.
+- Delete: Soft delete (sets `deleted_at`, not recoverable).
+- Comments: Up to 6 levels of nested replies. The post author and ancestor comment authors are notified automatically.
+- File attachments: Upload the file first (POST /files/upload), then pass the returned `id` in the `upload_ids` array.
 
 ## Base URL
 
@@ -23,50 +23,50 @@ https://withcenter.com/api/v1
 
 ---
 
-## 1. 게시글 API
+## 1. Post API
 
-### POST /posts — 게시글 생성
+### POST /posts — Create a post
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `title` | string | O | 제목 |
-| `content` | string | O | 내용 |
-| `category_id` | int | X | 카테고리 ID |
-| `site_id` | int | X | 사이트 ID (기본: 현재 사이트) |
-| `urls` | array | X | 첨부 URL 배열 |
-| `upload_ids` | array | X | 업로드 ID 배열 (파일 업로드 후 반환된 ID) |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | O | Title |
+| `content` | string | O | Content |
+| `category_id` | int | X | Category ID |
+| `site_id` | int | X | Site ID (default: current site) |
+| `urls` | array | X | Array of attached URLs |
+| `upload_ids` | array | X | Array of upload IDs (returned from file upload) |
 
-**핵심 소스코드**:
+**Core source code**:
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/posts \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"title": "새 게시글", "content": "내용입니다.", "category_id": 3}'
+  -d '{"title": "New post", "content": "This is the content.", "category_id": 3}'
 ```
 
-**파일 첨부 게시글 생성** (2단계):
+**Create a post with a file attachment** (2 steps):
 
 ```bash
-# 1단계: 파일 업로드
+# Step 1: Upload the file
 curl -s -X POST https://withcenter.com/api/v1/files/upload \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
   -F "file=@/path/to/image.jpg"
-# → 응답: { "data": { "id": 10, ... } }
+# → Response: { "data": { "id": 10, ... } }
 
-# 2단계: 업로드 ID로 게시글 생성
+# Step 2: Create the post with the upload ID
 curl -s -X POST https://withcenter.com/api/v1/posts \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"title": "사진 게시글", "content": "내용", "upload_ids": [10]}'
+  -d '{"title": "Photo post", "content": "Content", "upload_ids": [10]}'
 ```
 
-**성공 응답 (201)**:
+**Success response (201)**:
 
 ```json
 {
@@ -77,8 +77,8 @@ curl -s -X POST https://withcenter.com/api/v1/posts \
     "category_id": 3,
     "user_id": 4,
     "type": "default",
-    "title": "새 게시글",
-    "content": "내용입니다.",
+    "title": "New post",
+    "content": "This is the content.",
     "visibility": "public",
     "status": "published",
     "is_pinned": false,
@@ -95,24 +95,24 @@ curl -s -X POST https://withcenter.com/api/v1/posts \
 }
 ```
 
-**에러 (422)**:
-- `"제목을 입력해주세요."`
-- `"존재하지 않는 카테고리입니다."`
+**Error (422)**:
+- `"Please enter a title."`
+- `"The category does not exist."`
 
 ---
 
-### GET /posts — 게시글 목록
+### GET /posts — List posts
 
-**인증**: 불필요 (로그인 시 차단 사용자 필터링)
+**Authentication**: Not required (blocked users are filtered when logged in)
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `site_id` | int | X | 사이트 ID |
-| `category` | string | X | 카테고리 슬러그 또는 ID |
-| `page` | int | X | 페이지 (기본: 1) |
-| `per_page` | int | X | 페이지당 수 (기본: 20, 최대: 100) |
-| `order_by` | string | X | 정렬: `created_at`, `view_count`, `comment_count`, `like_count` |
-| `order` | string | X | 방향: `asc`, `desc` (기본: desc) |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `site_id` | int | X | Site ID |
+| `category` | string | X | Category slug or ID |
+| `page` | int | X | Page (default: 1) |
+| `per_page` | int | X | Items per page (default: 20, max: 100) |
+| `order_by` | string | X | Sort: `created_at`, `view_count`, `comment_count`, `like_count` |
+| `order` | string | X | Direction: `asc`, `desc` (default: desc) |
 
 ```bash
 curl -s "https://withcenter.com/api/v1/posts?category=free&page=1&per_page=10" \
@@ -120,7 +120,7 @@ curl -s "https://withcenter.com/api/v1/posts?category=free&page=1&per_page=10" \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
@@ -130,8 +130,8 @@ curl -s "https://withcenter.com/api/v1/posts?category=free&page=1&per_page=10" \
       "site_id": 1,
       "category_id": 3,
       "user_id": 5,
-      "title": "안녕하세요",
-      "content": "첫 번째 게시글입니다.",
+      "title": "Hello",
+      "content": "This is the first post.",
       "urls": [],
       "is_pinned": false,
       "is_blind": false,
@@ -141,12 +141,12 @@ curl -s "https://withcenter.com/api/v1/posts?category=free&page=1&per_page=10" \
       "created_at": "2025-03-29T10:00:00Z",
       "user": {
         "id": 5,
-        "display_name": "홍길동",
+        "display_name": "John Doe",
         "photo_url": "/uploads/5/avatar.jpg"
       },
       "category": {
         "id": 3,
-        "name": "자유게시판"
+        "name": "Free Board"
       }
     }
   ],
@@ -156,9 +156,9 @@ curl -s "https://withcenter.com/api/v1/posts?category=free&page=1&per_page=10" \
 
 ---
 
-### GET /posts/{id} — 게시글 상세
+### GET /posts/{id} — Get post details
 
-**인증**: 불필요
+**Authentication**: Not required
 
 ```bash
 curl -s https://withcenter.com/api/v1/posts/42 \
@@ -166,19 +166,19 @@ curl -s https://withcenter.com/api/v1/posts/42 \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-조회 시 `views_count` 자동 1 증가. 응답에 `files` 배열과 `user`, `category` 필드 포함.
+`views_count` is automatically incremented by 1 on lookup. The response includes `files`, `user`, and `category` fields.
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
   "data": {
     "id": 42,
-    "title": "안녕하세요",
-    "content": "첫 번째 게시글입니다.",
+    "title": "Hello",
+    "content": "This is the first post.",
     "view_count": 16,
-    "user": { "id": 5, "display_name": "홍길동", "photo_url": "..." },
-    "category": { "id": 3, "name": "자유게시판" },
+    "user": { "id": 5, "display_name": "John Doe", "photo_url": "..." },
+    "category": { "id": 3, "name": "Free Board" },
     "files": [
       {
         "id": 10,
@@ -197,33 +197,33 @@ curl -s https://withcenter.com/api/v1/posts/42 \
 
 ---
 
-### PUT /posts/{id} — 게시글 수정
+### PUT /posts/{id} — Update a post
 
-**인증**: 필수 (본인 또는 사이트 관리자)
+**Authentication**: Required (author or site administrator)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `title` | string | X | 제목 |
-| `content` | string | X | 내용 |
-| `category_id` | int | X | 카테고리 ID |
-| `urls` | array | X | 첨부 URL 배열 |
-| `upload_ids` | array | X | 새로 연결할 업로드 ID 배열 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | X | Title |
+| `content` | string | X | Content |
+| `category_id` | int | X | Category ID |
+| `urls` | array | X | Array of attached URLs |
+| `upload_ids` | array | X | Array of new upload IDs to attach |
 
 ```bash
 curl -s -X PUT https://withcenter.com/api/v1/posts/42 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"title": "수정된 제목", "content": "수정된 내용"}'
+  -d '{"title": "Updated title", "content": "Updated content"}'
 ```
 
-**에러**: 403 (`"수정 권한이 없습니다."`), 404 (`"게시글을 찾을 수 없습니다."`)
+**Errors**: 403 (`"You do not have permission to update."`), 404 (`"Post not found."`)
 
 ---
 
-### DELETE /posts/{id} — 게시글 삭제
+### DELETE /posts/{id} — Delete a post
 
-**인증**: 필수 (본인 또는 사이트 관리자)
+**Authentication**: Required (author or site administrator)
 
 ```bash
 curl -s -X DELETE https://withcenter.com/api/v1/posts/42 \
@@ -231,15 +231,15 @@ curl -s -X DELETE https://withcenter.com/api/v1/posts/42 \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 (200)**: `{ "data": { "message": "게시글이 삭제되었습니다." } }`
+**Success (200)**: `{ "data": { "message": "Post deleted." } }`
 
-**비즈니스 규칙**: 소프트 삭제 (deleted_at 설정)
+**Business rule**: Soft delete (sets `deleted_at`)
 
 ---
 
-### POST /posts/{id}/pin — 게시글 고정
+### POST /posts/{id}/pin — Pin a post
 
-**인증**: 사이트 관리자 필수
+**Authentication**: Site administrator required
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/posts/42/pin \
@@ -247,9 +247,9 @@ curl -s -X POST https://withcenter.com/api/v1/posts/42/pin \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-### DELETE /posts/{id}/pin — 게시글 고정 해제
+### DELETE /posts/{id}/pin — Unpin a post
 
-**인증**: 사이트 관리자 필수
+**Authentication**: Site administrator required
 
 ```bash
 curl -s -X DELETE https://withcenter.com/api/v1/posts/42/pin \
@@ -259,60 +259,60 @@ curl -s -X DELETE https://withcenter.com/api/v1/posts/42/pin \
 
 ---
 
-## 2. 댓글 API
+## 2. Comment API
 
-### POST /posts/{id}/comments — 댓글 생성
+### POST /posts/{id}/comments — Create a comment
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `content` | string | O | 댓글 내용 |
-| `parent_id` | int | X | 부모 댓글 ID (대댓글, 최대 6단계) |
-| `urls` | array | X | 첨부 URL 배열 |
-| `upload_ids` | array | X | 업로드 ID 배열 |
-
-```bash
-curl -s -X POST https://withcenter.com/api/v1/posts/42/comments \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer {API_KEY}" \
-  -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"content": "좋은 글이네요!"}'
-```
-
-**대댓글 생성**:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | string | O | Comment content |
+| `parent_id` | int | X | Parent comment ID (reply, up to 6 levels) |
+| `urls` | array | X | Array of attached URLs |
+| `upload_ids` | array | X | Array of upload IDs |
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/posts/42/comments \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"content": "답글입니다.", "parent_id": 100}'
+  -d '{"content": "Great post!"}'
 ```
 
-**에러 (422)**:
-- `"댓글 내용을 입력해주세요."`
-- `"게시글을 찾을 수 없습니다."`
-- `"부모 댓글을 찾을 수 없습니다."`
-- `"최대 대댓글 깊이를 초과했습니다."`
+**Create a reply**:
 
-**비즈니스 규칙**:
-- 대댓글 최대 깊이: 6단계
-- 게시글 작성자에게 자동 알림
-- 부모/조상 댓글 작성자에게 자동 알림 (최대 10단계)
+```bash
+curl -s -X POST https://withcenter.com/api/v1/posts/42/comments \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {API_KEY}" \
+  -H "User-Agent: KoreaSNS-CLI/1.0" \
+  -d '{"content": "This is a reply.", "parent_id": 100}'
+```
+
+**Error (422)**:
+- `"Please enter the comment content."`
+- `"Post not found."`
+- `"Parent comment not found."`
+- `"Maximum reply depth exceeded."`
+
+**Business rules**:
+- Maximum reply depth: 6 levels
+- The post author is notified automatically
+- Parent/ancestor comment authors are notified automatically (up to 10 levels)
 
 ---
 
-### GET /posts/{id}/comments — 댓글 목록
+### GET /posts/{id}/comments — List comments
 
-**인증**: 불필요 (로그인 시 차단 사용자 필터링)
+**Authentication**: Not required (blocked users are filtered when logged in)
 
 ```bash
 curl -s https://withcenter.com/api/v1/posts/42/comments \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
@@ -323,13 +323,13 @@ curl -s https://withcenter.com/api/v1/posts/42/comments \
         "post_id": 42,
         "user_id": 5,
         "parent_id": null,
-        "content": "좋은 글이네요!",
+        "content": "Great post!",
         "urls": [],
         "like_count": 2,
         "created_at": "2025-03-29T11:00:00Z",
         "user": {
           "id": 5,
-          "display_name": "홍길동",
+          "display_name": "John Doe",
           "photo_url": "/uploads/5/avatar.jpg"
         },
         "files": []
@@ -342,29 +342,29 @@ curl -s https://withcenter.com/api/v1/posts/42/comments \
 
 ---
 
-### PATCH /comments/{id} — 댓글 수정
+### PATCH /comments/{id} — Update a comment
 
-**인증**: 필수 (본인 또는 관리자)
+**Authentication**: Required (author or administrator)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `content` | string | O | 수정할 내용 |
-| `urls` | array | X | 첨부 URL 배열 |
-| `upload_ids` | array | X | 새로 연결할 업로드 ID 배열 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `content` | string | O | Updated content |
+| `urls` | array | X | Array of attached URLs |
+| `upload_ids` | array | X | Array of new upload IDs to attach |
 
 ```bash
 curl -s -X PATCH https://withcenter.com/api/v1/comments/100 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"content": "수정된 댓글"}'
+  -d '{"content": "Updated comment"}'
 ```
 
 ---
 
-### DELETE /comments/{id} — 댓글 삭제
+### DELETE /comments/{id} — Delete a comment
 
-**인증**: 필수 (본인 또는 관리자)
+**Authentication**: Required (author or administrator)
 
 ```bash
 curl -s -X DELETE https://withcenter.com/api/v1/comments/100 \
@@ -372,17 +372,17 @@ curl -s -X DELETE https://withcenter.com/api/v1/comments/100 \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 (200)**: `{ "data": { "message": "댓글이 삭제되었습니다." } }`
+**Success (200)**: `{ "data": { "message": "Comment deleted." } }`
 
 ---
 
-## 3. 좋아요 API
+## 3. Like API
 
-### POST /posts/{id}/like — 게시글 좋아요 토글
+### POST /posts/{id}/like — Toggle post like
 
-좋아요가 없으면 추가, 있으면 제거 (토글).
+Adds a like if none exists, removes it otherwise (toggle).
 
-**인증**: 필수
+**Authentication**: Required
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/posts/42/like \
@@ -390,21 +390,21 @@ curl -s -X POST https://withcenter.com/api/v1/posts/42/like \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 { "data": { "action": "liked", "like_count": 4 } }
-// 또는
+// or
 { "data": { "action": "unliked", "like_count": 3 } }
 ```
 
-**비즈니스 규칙**: 좋아요 추가 시 게시글 작성자에게 알림 (본인 글 제외)
+**Business rule**: When a like is added, the post author is notified (excluding the author's own posts)
 
 ---
 
-### POST /comments/{id}/like — 댓글 좋아요 토글
+### POST /comments/{id}/like — Toggle comment like
 
-**인증**: 필수
+**Authentication**: Required
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/comments/100/like \
@@ -414,15 +414,15 @@ curl -s -X POST https://withcenter.com/api/v1/comments/100/like \
 
 ---
 
-## 4. 북마크 API
+## 4. Bookmark API
 
-### POST /posts/{id}/bookmark — 북마크 토글
+### POST /posts/{id}/bookmark — Toggle bookmark
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 기본값 | 설명 |
-|------|------|------|--------|------|
-| `target_type` | string | X | `post` | `post` 또는 `comment` |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `target_type` | string | X | `post` | `post` or `comment` |
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/posts/42/bookmark \
@@ -432,13 +432,13 @@ curl -s -X POST https://withcenter.com/api/v1/posts/42/bookmark \
   -d '{"target_type": "post"}'
 ```
 
-**성공 (200)**: `{ "data": { "action": "bookmarked", "target_type": "post", "target_id": 42 } }`
+**Success (200)**: `{ "data": { "action": "bookmarked", "target_type": "post", "target_id": 42 } }`
 
 ---
 
-### DELETE /posts/{id}/bookmark — 북마크 삭제
+### DELETE /posts/{id}/bookmark — Remove bookmark
 
-**인증**: 필수
+**Authentication**: Required
 
 ```bash
 curl -s -X DELETE https://withcenter.com/api/v1/posts/42/bookmark \
@@ -446,18 +446,18 @@ curl -s -X DELETE https://withcenter.com/api/v1/posts/42/bookmark \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 (200)**: `{ "data": { "message": "북마크가 삭제되었습니다." } }`
+**Success (200)**: `{ "data": { "message": "Bookmark removed." } }`
 
 ---
 
-## 5. 리액션 API
+## 5. Reaction API
 
-### POST /posts/{id}/reactions — 게시글 리액션 토글
+### POST /posts/{id}/reactions — Toggle post reaction
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 기본값 | 허용 값 |
-|------|------|------|--------|---------|
+| Field | Type | Required | Default | Allowed values |
+|-------|------|----------|---------|----------------|
 | `reaction_type` | string | X | `like` | `like`, `love`, `haha`, `wow`, `sad`, `angry` |
 
 ```bash
@@ -468,19 +468,19 @@ curl -s -X POST https://withcenter.com/api/v1/posts/42/reactions \
   -d '{"reaction_type": "love"}'
 ```
 
-**성공 (200)**:
+**Success (200)**:
 
 ```json
 { "data": { "action": "reacted", "target_type": "post", "target_id": 42 } }
-// 또는 (이미 반응한 경우)
+// or (already reacted)
 { "data": { "action": "unreacted", "target_type": "post", "target_id": 42 } }
 ```
 
 ---
 
-### POST /comments/{id}/reactions — 댓글 리액션 토글
+### POST /comments/{id}/reactions — Toggle comment reaction
 
-게시글 리액션과 동일한 방식. target_type이 자동으로 `comment`로 설정.
+Same approach as post reactions. `target_type` is automatically set to `comment`.
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/comments/100/reactions \

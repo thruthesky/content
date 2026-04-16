@@ -1,51 +1,51 @@
 ---
 name: delete
-description: "Korea SNS 게시글을 삭제한다. 게시글 ID를 지정하여 삭제한다. 예: '/korea:delete 42번 게시글을 삭제해주세요'. 게시글 삭제, 글 제거, 포스트 삭제 시 사용."
+description: "Delete a Korea SNS post. Specify the post ID to delete. Example: '/korea:delete Please delete post 42'. Use for deleting posts, removing posts, and deleting entries."
 ---
 
-# /korea:delete — 게시글 삭제
+# /korea:delete — Delete a Post
 
-사용자의 요청에 따라 Korea SNS 게시글을 삭제한다.
+Delete a Korea SNS post as requested by the user.
 
-## 사용 예시
+## Usage Examples
 
 ```
-/korea:delete 42번 게시글을 삭제해주세요.
+/korea:delete Please delete post 42.
 /korea:delete --id 42
 ```
 
-## 실행 절차
+## Execution Procedure
 
-### 1단계: 필수 정보 확인
+### Step 1: Validate required information
 
-| 정보 | 필수 | 설명 |
-|------|------|------|
-| **API 키** | O | 인증용 API 키 |
-| **게시글 ID** | O | 삭제할 게시글 ID |
+| Information | Required | Description |
+|-------------|----------|-------------|
+| **API key** | O | API key used for authentication |
+| **Post ID** | O | ID of the post to delete |
 
-**정보가 부족한 경우**: 사용자에게 삭제할 게시글 ID를 요청한 후 작업을 중단한다.
+**When information is missing**: ask the user for the post ID to delete and abort.
 
-### 2단계: 게시글 확인 및 삭제 확인
+### Step 2: Review and confirm deletion
 
 ```bash
-# 삭제 전 게시글 내용 확인
+# Check the post content before deleting
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" get --id {POST_ID}
 ```
 
-삭제는 **되돌릴 수 없으므로** 사용자에게 삭제 대상 게시글의 제목과 내용을 보여주고 확인을 받는다.
+Deletion **cannot be undone**, so show the user the title and content of the target post and confirm.
 
-### 3단계: 게시글 삭제
+### Step 3: Delete the post
 
 ```bash
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" delete --id {POST_ID}
 ```
 
-### 4단계: 결과 보고
+### Step 4: Report the result
 
-삭제 성공/실패를 사용자에게 알려준다.
+Tell the user whether the deletion succeeded or failed.
 
-## 주의사항
+## Notes
 
-- 삭제는 소프트 삭제 (deleted_at 설정)이며 복구 불가
-- 본인 글 또는 사이트 관리자만 삭제 가능
-- **삭제 전 반드시 사용자 확인을 받는다**
+- Deletion is a soft delete (sets `deleted_at`) and cannot be recovered
+- Only the author or a site administrator may delete the post
+- **Always confirm with the user before deleting**

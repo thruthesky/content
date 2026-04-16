@@ -1,68 +1,68 @@
 ---
 name: create-comment
-description: "Korea SNS 게시글에 댓글을 생성한다. 자연어로 게시글과 댓글 내용을 지정한다. 예: '/korea:create-comment 42번 게시글에 좋은 글이네요 댓글을 달아주세요'. 댓글 작성, 코멘트 생성, 대댓글 작성 시 사용."
+description: "Create a comment on a Korea SNS post. Specify the target post and comment content in natural language. Example: '/korea:create-comment Leave the comment \"Great post!\" on post 42'. Use for writing comments, creating comments, and posting replies."
 ---
 
-# /korea:create-comment — 댓글 생성
+# /korea:create-comment — Create a Comment
 
-사용자의 자연어 요청을 분석하여 Korea SNS 게시글에 댓글을 생성한다.
+Analyze the user's natural-language request and create a comment on a Korea SNS post.
 
-## 사용 예시
+## Usage Examples
 
 ```
-/korea:create-comment 42번 게시글에 "좋은 글이네요!" 댓글을 달아주세요.
-/korea:create-comment --post-id 42 --content "좋은 글이네요!"
-/korea:create-comment 42번 글의 100번 댓글에 대댓글을 달아주세요. 내용: "동의합니다"
+/korea:create-comment Leave the comment "Great post!" on post 42.
+/korea:create-comment --post-id 42 --content "Great post!"
+/korea:create-comment Reply to comment 100 on post 42. Content: "I agree"
 ```
 
-## 실행 절차
+## Execution Procedure
 
-### 1단계: 필수 정보 확인
+### Step 1: Validate required information
 
-| 정보 | 필수 | 설명 |
-|------|------|------|
-| **API 키** | O | 인증용 API 키 |
-| **게시글 ID** | O | 댓글을 달 게시글 ID |
-| **댓글 내용** | O | 댓글 내용 |
-| **부모 댓글 ID** | X | 대댓글인 경우 부모 댓글 ID |
+| Information | Required | Description |
+|-------------|----------|-------------|
+| **API key** | O | API key used for authentication |
+| **Post ID** | O | ID of the post to comment on |
+| **Comment content** | O | Comment body |
+| **Parent comment ID** | X | Parent comment ID when replying |
 
-**정보가 부족한 경우**: 사용자에게 부족한 정보를 알려주고 입력을 요청한 후 작업을 중단한다.
+**When information is missing**: inform the user which fields are missing, request the input, and then abort.
 
-부족 정보 안내 예시:
+Missing-info message example:
 ```
-댓글을 생성하려면 다음 정보가 필요합니다:
-- 게시글 ID: 어떤 게시글에 댓글을 달까요?
-- 댓글 내용: 어떤 내용의 댓글을 작성할까요?
+To create a comment, the following information is required:
+- Post ID: which post should the comment be left on?
+- Comment content: what should the comment say?
 ```
 
-### 2단계: 댓글 생성
+### Step 2: Create the comment
 
 ```bash
-# 일반 댓글
+# Regular comment
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" comment-create \
-  --post-id {POST_ID} --content "댓글 내용"
+  --post-id {POST_ID} --content "Comment content"
 
-# 대댓글 (부모 댓글 ID 지정)
+# Reply (with a parent comment ID)
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" comment-create \
-  --post-id {POST_ID} --content "대댓글 내용" --parent-id {PARENT_ID}
+  --post-id {POST_ID} --content "Reply content" --parent-id {PARENT_ID}
 ```
 
-### 3단계: 결과 보고
+### Step 3: Report the result
 
-성공 시 생성된 댓글 ID를 사용자에게 알려준다.
+On success, tell the user the created comment ID.
 
-## 이미지 첨부 댓글
+## Comment with Image Attachment
 
 ```bash
-# 1. 파일 업로드
+# 1. Upload the file
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" upload --file "/path/to/image.jpg"
 
-# 2. 댓글 생성 시 upload_ids 전달
+# 2. Pass upload_ids when creating the comment
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" comment-create \
-  --post-id {POST_ID} --content "사진 첨부 댓글" --upload-ids "10"
+  --post-id {POST_ID} --content "Comment with photo" --upload-ids "10"
 ```
 
-## 주의사항
+## Notes
 
-- 대댓글은 최대 6단계까지 가능
-- 게시글 작성자와 부모 댓글 작성자에게 자동 알림 발송
+- Replies can be nested up to 6 levels
+- The post author and any parent comment authors receive notifications automatically

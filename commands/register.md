@@ -1,97 +1,97 @@
 ---
 name: register
-description: "Korea SNS 서브사이트에 회원가입한다. 사이트 이름/도메인, 이메일, 비밀번호, 닉네임을 입력하여 새 계정을 생성하고 API 키를 획득한다. 예: '/korea:register apple.withcenter.com user@example.com pass123 홍길동'. 회원가입, 계정 생성, 가입, 신규 등록 시 사용."
+description: "Register on a Korea SNS subsite. Provide site name/domain, email, password, and nickname to create a new account and obtain an API key. Example: '/korea:register apple.withcenter.com user@example.com pass123 JohnDoe'. Use for registration, account creation, signup, and new account creation."
 ---
 
-# /korea:register — 회원가입
+# /korea:register — Register
 
-Korea SNS 서브사이트에 새 계정을 생성하고 API 키를 획득한다.
+Create a new account on a Korea SNS subsite and obtain an API key.
 
-## 명령어 형식
-
-```
-/korea:register <사이트이름> <email> <password> <nickname>
-```
-
-**네 개의 파라미터 모두 필수이다.** 하나라도 빠지면 작업을 중단하고 사용자에게 안내한다.
-
-## 사용 예시
+## Command Format
 
 ```
-/korea:register apple.withcenter.com user@example.com mypass123 홍길동
-/korea:register bangphil.com test@example.com secure456 마닐라사람
+/korea:register <site_name> <email> <password> <nickname>
 ```
 
-## 실행 절차
+**All four parameters are required.** If any is missing, abort the task and guide the user.
 
-### 1단계: 필수 파라미터 확인
-
-ARGUMENTS에서 다음 4개의 파라미터를 순서대로 추출한다:
-
-| 순서 | 파라미터 | 필수 | 설명 |
-|------|----------|------|------|
-| 1 | **사이트이름** | **필수** | 서브사이트 도메인 (예: `apple.withcenter.com`, `bangphil.com`) |
-| 2 | **email** | **필수** | 유효한 이메일 주소 |
-| 3 | **password** | **필수** | 최소 6자 이상 |
-| 4 | **nickname** | **필수** | 표시 이름 (닉네임) |
-
-**파라미터가 부족한 경우 즉시 작업을 중단하고 다음을 안내한다:**
+## Usage Examples
 
 ```
-회원가입에 필요한 정보가 부족합니다.
-사용법: /korea:register <사이트이름> <email> <password> <nickname>
-예시: /korea:register apple.withcenter.com user@example.com mypass123 홍길동
-
-필수 항목:
-  - 사이트이름: 가입할 서브사이트 도메인 (예: apple.withcenter.com)
-  - email: 유효한 이메일 주소
-  - password: 최소 6자 이상
-  - nickname: 표시 이름 (닉네임)
+/korea:register apple.withcenter.com user@example.com mypass123 JohnDoe
+/korea:register bangphil.com test@example.com secure456 ManilaResident
 ```
 
-### 2단계: 사이트 URL 구성
+## Execution Procedure
 
-사이트이름에서 Base URL을 구성한다:
+### Step 1: Validate required parameters
+
+Extract the four parameters from ARGUMENTS in order:
+
+| Order | Parameter | Required | Description |
+|-------|-----------|----------|-------------|
+| 1 | **site_name** | **Required** | Subsite domain (e.g., `apple.withcenter.com`, `bangphil.com`) |
+| 2 | **email** | **Required** | A valid email address |
+| 3 | **password** | **Required** | At least 6 characters |
+| 4 | **nickname** | **Required** | Display name (nickname) |
+
+**If a parameter is missing, immediately abort and show this guide:**
+
+```
+Missing information for registration.
+Usage: /korea:register <site_name> <email> <password> <nickname>
+Example: /korea:register apple.withcenter.com user@example.com mypass123 JohnDoe
+
+Required fields:
+  - site_name: subsite domain to join (e.g., apple.withcenter.com)
+  - email: a valid email address
+  - password: at least 6 characters
+  - nickname: display name (nickname)
+```
+
+### Step 2: Build the site URL
+
+Build the base URL from the site name:
 - `apple.withcenter.com` → `https://apple.withcenter.com/api/v1`
 - `bangphil.com` → `https://bangphil.com/api/v1`
 
-도메인에 프로토콜이 없으면 `https://`를 앞에 붙인다.
+If the domain does not include a protocol, prepend `https://`.
 
-### 3단계: 회원가입 실행
+### Step 3: Run the registration
 
 ```bash
 python3 skills/korea/scripts/korea_api.py --api-key "" \
-  --base-url "https://{사이트이름}/api/v1" \
+  --base-url "https://{site_name}/api/v1" \
   register --email "{EMAIL}" --password "{PASSWORD}" --display-name "{NICKNAME}"
 ```
 
-### 4단계: 결과 보고 — API 키를 사용자에게 표시
+### Step 4: Report the result — show the API key clearly
 
-**성공 시** 다음 형식으로 사용자에게 API 키를 명확하게 보여준다:
+**On success** show the API key clearly to the user in this format:
 
 ```
-✅ 회원가입 성공!
+Registration successful.
 
-사이트: {사이트이름}
-이메일: {email}
-닉네임: {nickname}
-회원 ID: {id}
+Site: {site_name}
+Email: {email}
+Nickname: {nickname}
+User ID: {id}
 
-🔑 API 키: {api_key}
+API key: {api_key}
 
-이 API 키를 이후 /korea:create, /korea:update 등의 명령어에서 사용할 수 있습니다.
+You can use this API key with commands such as /korea:create and /korea:update.
 ```
 
-**실패 시** 에러 메시지를 사용자에게 전달한다:
-- `"이미 등록된 이메일입니다."` → 다른 이메일 사용 또는 로그인 안내
-- `"비밀번호는 최소 6자 이상이어야 합니다."` → 비밀번호 변경 안내
-- `"올바른 이메일 형식이 아닙니다."` → 이메일 형식 확인 안내
-- `"메인 사이트에서는 회원가입할 수 없습니다."` → 서브사이트 도메인을 정확히 입력하라고 안내
+**On failure** relay the error message to the user:
+- `"Email already registered."` → suggest a different email or logging in instead
+- `"Password must be at least 6 characters."` → ask the user to change the password
+- `"Invalid email format."` → ask the user to verify the email format
+- `"Registration is not allowed on the main site."` → ask the user to provide the subsite domain correctly
 
-## 주의사항
+## Notes
 
-- 메인 사이트(withcenter.com)에서는 회원가입 불가 — 반드시 서브사이트 도메인 필요
-- 비밀번호는 최소 6자 이상이어야 한다
-- 이미 등록된 이메일로는 가입할 수 없다
-- 가입 즉시 자동 로그인되며 API 키가 발급된다
-- 서브사이트의 첫 번째 가입자는 자동으로 사이트 소유자(관리자)로 지정된다
+- Registration is not allowed on the main site (withcenter.com) — a subsite domain is required
+- Password must be at least 6 characters
+- Cannot register with an already registered email
+- On registration, the user is automatically logged in and an API key is issued
+- The first registrant of a subsite is automatically set as the site owner (administrator)

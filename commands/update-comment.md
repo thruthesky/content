@@ -1,42 +1,42 @@
 ---
 name: update-comment
-description: "Korea SNS 댓글을 수정한다. 댓글 ID와 새 내용을 지정한다. 예: '/korea:update-comment 100번 댓글을 수정해주세요'. 댓글 수정, 코멘트 편집 시 사용."
+description: "Update a Korea SNS comment. Specify the comment ID and the new content. Example: '/korea:update-comment Please update comment 100'. Use for updating comments and editing comments."
 ---
 
-# /korea:update-comment — 댓글 수정
+# /korea:update-comment — Update a Comment
 
-사용자의 요청에 따라 Korea SNS 댓글을 수정한다.
+Update a Korea SNS comment as requested by the user.
 
-## 사용 예시
+## Usage Examples
 
 ```
-/korea:update-comment 100번 댓글을 "수정된 내용"으로 변경해주세요.
-/korea:update-comment --comment-id 100 --content "수정된 내용"
+/korea:update-comment Please change comment 100 to "Updated content".
+/korea:update-comment --comment-id 100 --content "Updated content"
 ```
 
-## 실행 절차
+## Execution Procedure
 
-### 1단계: 필수 정보 확인
+### Step 1: Validate required information
 
-| 정보 | 필수 | 설명 |
-|------|------|------|
-| **API 키** | O | 인증용 API 키 |
-| **댓글 ID** | O | 수정할 댓글 ID |
-| **수정 내용** | O | 새 댓글 내용 |
+| Information | Required | Description |
+|-------------|----------|-------------|
+| **API key** | O | API key used for authentication |
+| **Comment ID** | O | ID of the comment to update |
+| **Updated content** | O | The new comment body |
 
-**정보가 부족한 경우**: 사용자에게 부족한 정보를 알려주고 입력을 요청한 후 작업을 중단한다.
+**When information is missing**: inform the user which fields are missing, request the input, and then abort.
 
-### 2단계: 댓글 수정
+### Step 2: Update the comment
 
 ```bash
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" comment-update \
-  --comment-id {COMMENT_ID} --content "수정된 내용"
+  --comment-id {COMMENT_ID} --content "Updated content"
 ```
 
-### 3단계: 결과 보고
+### Step 3: Report the result
 
-수정 성공/실패를 사용자에게 알려준다.
+Tell the user whether the update succeeded or failed.
 
-## 주의사항
+## Notes
 
-- 본인 댓글 또는 사이트 관리자만 수정 가능
+- Only the author or a site administrator may update the comment

@@ -1,28 +1,28 @@
-# 시스템 API (파일 업로드, 사이트, 카테고리, 알림, 검색, 신고)
+# System API (file upload, sites, categories, notifications, search, reports)
 
-> 상위 문서: [SKILL.md](../SKILL.md) — 인증 방식은 [api-auth.md](api-auth.md) 참조
+> Parent document: [SKILL.md](../SKILL.md) — see [api-auth.md](api-auth.md) for authentication
 
 ---
 
-## 1. 파일 업로드 API
+## 1. File Upload API
 
-### POST /files/upload — 파일 업로드
+### POST /files/upload — Upload a file
 
-**인증**: 필수 | **요청**: `multipart/form-data`
+**Authentication**: Required | **Request**: `multipart/form-data`
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `file` | file | O | 업로드할 파일 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | file | O | File to upload |
 
-**허용 MIME 타입**:
-- 이미지: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/avif`
-- 동영상: `video/mp4`
-- 오디오: `audio/mpeg`
-- 문서: `application/pdf`, `text/plain`, `application/zip`
+**Allowed MIME types**:
+- Images: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, `image/avif`
+- Video: `video/mp4`
+- Audio: `audio/mpeg`
+- Documents: `application/pdf`, `text/plain`, `application/zip`
 
-**파일 크기 제한**: 최대 50MB
+**File size limit**: 50 MB max
 
-**핵심 소스코드**:
+**Core source code**:
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/files/upload \
@@ -31,7 +31,7 @@ curl -s -X POST https://withcenter.com/api/v1/files/upload \
   -F "file=@/path/to/image.jpg"
 ```
 
-**성공 응답 (201)**:
+**Success response (201)**:
 
 ```json
 {
@@ -49,24 +49,24 @@ curl -s -X POST https://withcenter.com/api/v1/files/upload \
 }
 ```
 
-**에러 (422)**:
-- `"파일이 없습니다."`
-- `"파일 크기가 50MB를 초과합니다."`
-- `"허용되지 않는 파일 형식입니다."`
+**Error (422)**:
+- `"No file provided."`
+- `"File size exceeds 50 MB."`
+- `"File type not allowed."`
 
-**비즈니스 규칙**:
-- 파일은 `/uploads/{user_id}/` 디렉토리에 저장
-- 파일명은 랜덤 32자 hex 문자열로 생성
-- **게시글/댓글에 연결하려면** 반환된 `id`를 `upload_ids` 배열로 전달:
+**Business rules**:
+- Files are stored under `/uploads/{user_id}/`
+- The filename is a random 32-character hex string
+- **To attach to a post/comment**, pass the returned `id` in the `upload_ids` array:
   ```json
-  { "title": "사진 게시글", "content": "내용", "upload_ids": [10, 11] }
+  { "title": "Photo post", "content": "Content", "upload_ids": [10, 11] }
   ```
 
 ---
 
-### DELETE /files/{id} — 파일 삭제
+### DELETE /files/{id} — Delete a file
 
-**인증**: 필수 (본인 파일만)
+**Authentication**: Required (only the owner's file)
 
 ```bash
 curl -s -X DELETE https://withcenter.com/api/v1/files/10 \
@@ -74,22 +74,22 @@ curl -s -X DELETE https://withcenter.com/api/v1/files/10 \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 (200)**: `{ "data": { "message": "파일이 삭제되었습니다." } }`
+**Success (200)**: `{ "data": { "message": "File deleted." } }`
 
-**에러**: 403 (본인 파일이 아님), 404 (파일 없음)
+**Errors**: 403 (not the owner's file), 404 (file not found)
 
 ---
 
-## 2. 사이트 API
+## 2. Site API
 
-### GET /sites — 사이트 목록 조회
+### GET /sites — List sites
 
-**인증**: 불필요
+**Authentication**: Not required
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `page` | int | X | 페이지 번호 |
-| `per_page` | int | X | 페이지당 수 (기본: 10) |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | int | X | Page number |
+| `per_page` | int | X | Items per page (default: 10) |
 
 ```bash
 curl -s "https://withcenter.com/api/v1/sites?page=1&per_page=10" \
@@ -98,35 +98,35 @@ curl -s "https://withcenter.com/api/v1/sites?page=1&per_page=10" \
 
 ---
 
-### POST /sites — 사이트 생성
+### POST /sites — Create a site
 
-**인증**: 불필요 (공개 사이트 생성)
+**Authentication**: Not required (public site creation)
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `domain` | string | O | 사이트 도메인 |
-| `name` 또는 `site_name` | string | O | 사이트 이름 |
-| `owner_user_id` | int | X | 소유자 사용자 ID |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `domain` | string | O | Site domain |
+| `name` or `site_name` | string | O | Site name |
+| `owner_user_id` | int | X | Owner user ID |
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/sites \
   -H "Content-Type: application/json" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"domain": "newsite", "name": "새 사이트"}'
+  -d '{"domain": "newsite", "name": "New Site"}'
 ```
 
-**에러 (422)**:
-- `"도메인을 입력해주세요."`
-- `"사이트 이름을 입력해주세요."`
-- `"이미 등록된 도메인입니다."`
+**Error (422)**:
+- `"Please enter a domain."`
+- `"Please enter a site name."`
+- `"Domain already registered."`
 
-**비즈니스 규칙**: 사이트 생성 시 기본 카테고리 자동 생성
+**Business rule**: Default categories are created automatically when a site is created
 
 ---
 
-### GET /sites/{id} — 사이트 상세 조회
+### GET /sites/{id} — Get site details
 
-**인증**: 불필요
+**Authentication**: Not required
 
 ```bash
 curl -s https://withcenter.com/api/v1/sites/1 \
@@ -135,39 +135,39 @@ curl -s https://withcenter.com/api/v1/sites/1 \
 
 ---
 
-### PUT /sites/{id} — 사이트 수정
+### PUT /sites/{id} — Update a site
 
-**인증**: 사이트 관리자 필수
+**Authentication**: Site administrator required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `site_name` | string | X | 사이트 이름 |
-| `description` | string | X | 사이트 설명 |
-| `settings` | object | X | 사이트 설정 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `site_name` | string | X | Site name |
+| `description` | string | X | Site description |
+| `settings` | object | X | Site settings |
 
 ---
 
-## 3. 카테고리 API
+## 3. Category API
 
-### GET /sites/{id}/categories/tree — 카테고리 트리 조회
+### GET /sites/{id}/categories/tree — Get category tree
 
-계층 구조 카테고리 반환. 게시글 작성 전에 호출하여 카테고리 ID를 확인한다.
+Returns categories in a hierarchical structure. Call before creating a post to obtain the category ID.
 
-**인증**: 불필요
+**Authentication**: Not required
 
 ```bash
 curl -s https://withcenter.com/api/v1/sites/1/categories/tree \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
   "data": [
     {
       "id": 1,
-      "name": "자유게시판",
+      "name": "Free Board",
       "type": "forum",
       "parent_id": null,
       "depth": 0,
@@ -177,7 +177,7 @@ curl -s https://withcenter.com/api/v1/sites/1/categories/tree \
       "children": [
         {
           "id": 5,
-          "name": "일상",
+          "name": "Daily",
           "parent_id": 1,
           "depth": 1,
           "children": []
@@ -190,9 +190,9 @@ curl -s https://withcenter.com/api/v1/sites/1/categories/tree \
 
 ---
 
-### GET /sites/{id}/categories — 카테고리 목록 조회
+### GET /sites/{id}/categories — List categories
 
-플랫 형태 카테고리 목록.
+Flat list of categories.
 
 ```bash
 curl -s https://withcenter.com/api/v1/sites/1/categories \
@@ -201,60 +201,60 @@ curl -s https://withcenter.com/api/v1/sites/1/categories \
 
 ---
 
-### POST /sites/{id}/categories — 카테고리 생성
+### POST /sites/{id}/categories — Create a category
 
-**인증**: 사이트 관리자 필수
+**Authentication**: Site administrator required
 
-| 필드 | 타입 | 필수 | 기본값 | 설명 |
-|------|------|------|--------|------|
-| `name` | string | O | - | 카테고리 이름 |
-| `parent_id` | int | X | null | 부모 카테고리 ID |
-| `type` | string | X | `forum` | 카테고리 타입 |
-| `icon` | string | X | `""` | Font Awesome 아이콘 클래스 |
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `name` | string | O | - | Category name |
+| `parent_id` | int | X | null | Parent category ID |
+| `type` | string | X | `forum` | Category type |
+| `icon` | string | X | `""` | Font Awesome icon class |
 | `url` | string | X | `""` | URL |
-| `is_visible` | bool | X | true | 표시 여부 |
+| `is_visible` | bool | X | true | Visibility |
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/sites/1/categories \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"name": "맛집 추천", "parent_id": 1, "type": "forum", "icon": "fa-utensils"}'
+  -d '{"name": "Restaurant Picks", "parent_id": 1, "type": "forum", "icon": "fa-utensils"}'
 ```
 
-**제한 사항**:
-- 1차 카테고리: 최대 32개
-- 2차 카테고리: 1차당 최대 64개
-- 최대 깊이: 3단계
+**Limits**:
+- Top-level categories: up to 32
+- Second-level categories: up to 64 per top-level
+- Maximum depth: 3 levels
 
 ---
 
-### PUT /categories/{id} — 카테고리 수정
+### PUT /categories/{id} — Update a category
 
-**인증**: 사이트 관리자 필수
+**Authentication**: Site administrator required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `name` | string | X | 카테고리 이름 |
-| `type` | string | X | 카테고리 타입 |
-| `icon` | string | X | 아이콘 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | X | Category name |
+| `type` | string | X | Category type |
+| `icon` | string | X | Icon |
 | `url` | string | X | URL |
-| `description` | string | X | 설명 |
-| `is_visible` | bool | X | 표시 여부 |
+| `description` | string | X | Description |
+| `is_visible` | bool | X | Visibility |
 
 ```bash
 curl -s -X PUT https://withcenter.com/api/v1/categories/5 \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"name": "수정된 카테고리", "icon": "fa-star"}'
+  -d '{"name": "Updated category", "icon": "fa-star"}'
 ```
 
 ---
 
-### DELETE /categories/{id} — 카테고리 삭제
+### DELETE /categories/{id} — Delete a category
 
-**인증**: 사이트 관리자 필수
+**Authentication**: Site administrator required
 
 ```bash
 curl -s -X DELETE https://withcenter.com/api/v1/categories/5 \
@@ -262,33 +262,33 @@ curl -s -X DELETE https://withcenter.com/api/v1/categories/5 \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**비즈니스 규칙**: 하위 카테고리는 상위로 자동 승격
+**Business rule**: Sub-categories are automatically promoted to the parent level
 
 ---
 
-### PATCH /categories/{id}/move — 카테고리 이동
+### PATCH /categories/{id}/move — Move a category
 
-**인증**: 사이트 관리자 필수
+**Authentication**: Site administrator required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `parent_id` | int | X | 새 부모 카테고리 ID (null=루트) |
-| `sort_order` | int | X | 정렬 순서 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `parent_id` | int | X | New parent category ID (null = root) |
+| `sort_order` | int | X | Sort order |
 
-**에러 (422)**:
-- `"자기 자신을 부모로 설정할 수 없습니다."`
-- `"순환 참조가 발생합니다."`
-- `"최대 카테고리 깊이를 초과합니다."`
+**Error (422)**:
+- `"You cannot set a category as its own parent."`
+- `"Circular reference detected."`
+- `"Maximum category depth exceeded."`
 
 ---
 
-### POST /categories/reorder — 카테고리 순서 변경
+### POST /categories/reorder — Change category order
 
-**인증**: 사이트 관리자 필수
+**Authentication**: Site administrator required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `ordered_ids` | int[] | O | 순서대로 정렬된 카테고리 ID 배열 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ordered_ids` | int[] | O | Array of category IDs in the desired order |
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/categories/reorder \
@@ -298,20 +298,20 @@ curl -s -X POST https://withcenter.com/api/v1/categories/reorder \
   -d '{"ordered_ids": [3, 1, 5, 2, 4]}'
 ```
 
-**성공 (200)**: `{ "data": { "message": "순서가 변경되었습니다." } }`
+**Success (200)**: `{ "data": { "message": "Order updated." } }`
 
 ---
 
-## 4. 알림 API
+## 4. Notification API
 
-### GET /notifications — 알림 목록 조회
+### GET /notifications — List notifications
 
-**인증**: 필수
+**Authentication**: Required
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `page` | int | X | 페이지 번호 |
-| `per_page` | int | X | 페이지당 수 |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `page` | int | X | Page number |
+| `per_page` | int | X | Items per page |
 
 ```bash
 curl -s "https://withcenter.com/api/v1/notifications?page=1&per_page=20" \
@@ -319,7 +319,7 @@ curl -s "https://withcenter.com/api/v1/notifications?page=1&per_page=20" \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
@@ -327,8 +327,8 @@ curl -s "https://withcenter.com/api/v1/notifications?page=1&per_page=20" \
     {
       "id": 200,
       "type": "comment_reply",
-      "title": "새 댓글",
-      "body": "홍길동님이 댓글을 남겼습니다.",
+      "title": "New comment",
+      "body": "John Doe left a comment.",
       "actor_user_id": 5,
       "target_type": "post",
       "target_id": 42,
@@ -342,9 +342,9 @@ curl -s "https://withcenter.com/api/v1/notifications?page=1&per_page=20" \
 
 ---
 
-### GET /notifications/unread-count — 읽지 않은 알림 수
+### GET /notifications/unread-count — Unread notification count
 
-**인증**: 필수
+**Authentication**: Required
 
 ```bash
 curl -s https://withcenter.com/api/v1/notifications/unread-count \
@@ -352,13 +352,13 @@ curl -s https://withcenter.com/api/v1/notifications/unread-count \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 (200)**: `{ "data": { "unread_count": 3 } }`
+**Success (200)**: `{ "data": { "unread_count": 3 } }`
 
 ---
 
-### POST /notifications/read-all — 모든 알림 읽음 처리
+### POST /notifications/read-all — Mark all notifications as read
 
-**인증**: 필수
+**Authentication**: Required
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/notifications/read-all \
@@ -366,13 +366,13 @@ curl -s -X POST https://withcenter.com/api/v1/notifications/read-all \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 (200)**: `{ "data": { "marked_count": 3 } }`
+**Success (200)**: `{ "data": { "marked_count": 3 } }`
 
 ---
 
-### POST /notifications/{id}/read — 단일 알림 읽음 처리
+### POST /notifications/{id}/read — Mark a single notification as read
 
-**인증**: 필수
+**Authentication**: Required
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/notifications/200/read \
@@ -382,26 +382,26 @@ curl -s -X POST https://withcenter.com/api/v1/notifications/200/read \
 
 ---
 
-## 5. 검색 API
+## 5. Search API
 
-### GET /search — 전문 검색 (MeiliSearch 기반)
+### GET /search — Full-text search (MeiliSearch based)
 
-**인증**: 불필요
+**Authentication**: Not required
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `q` | string | O | 검색어 |
-| `site_id` | int | X | 사이트 ID |
-| `category_id` | int | X | 카테고리 필터 |
-| `page` | int | X | 페이지 번호 |
-| `per_page` | int | X | 페이지당 수 (최대: 100) |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `q` | string | O | Search query |
+| `site_id` | int | X | Site ID |
+| `category_id` | int | X | Category filter |
+| `page` | int | X | Page number |
+| `per_page` | int | X | Items per page (max: 100) |
 
 ```bash
-curl -s "https://withcenter.com/api/v1/search?q=한국&category_id=3&page=1" \
+curl -s "https://withcenter.com/api/v1/search?q=korea&category_id=3&page=1" \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
@@ -409,60 +409,60 @@ curl -s "https://withcenter.com/api/v1/search?q=한국&category_id=3&page=1" \
   "total": 15,
   "page": 1,
   "limit": 20,
-  "query": "한국"
+  "query": "korea"
 }
 ```
 
 ---
 
-## 6. 신고 API
+## 6. Report API
 
-### POST /reports — 신고 생성
+### POST /reports — Create a report
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `target_type` | string | O | `post` 또는 `comment` |
-| `target_id` | int | O | 신고 대상 ID |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `target_type` | string | O | `post` or `comment` |
+| `target_id` | int | O | Target ID to report |
 | `report_type` | string | O | `spam`, `inappropriate`, `harassment`, `misinformation`, `copyright`, `other` |
-| `reason` | string | X | 상세 사유 |
+| `reason` | string | X | Detailed reason |
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/reports \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"target_type": "post", "target_id": 42, "report_type": "spam", "reason": "광고성 게시글"}'
+  -d '{"target_type": "post", "target_id": 42, "report_type": "spam", "reason": "Advertising spam"}'
 ```
 
-**에러 (422)**:
-- `"신고 대상 타입이 올바르지 않습니다."`
-- `"자기 자신의 콘텐츠는 신고할 수 없습니다."`
-- `"이미 신고한 콘텐츠입니다."`
+**Error (422)**:
+- `"Invalid report target type."`
+- `"You cannot report your own content."`
+- `"You have already reported this content."`
 
-**비즈니스 규칙**: 게시글의 pending 상태 신고가 3개 이상이면 자동 블라인드 처리
+**Business rule**: A post is automatically blinded when the count of pending reports reaches 3
 
 ---
 
-## 7. API 문서 조회
+## 7. API Documentation
 
-### GET /docs — 사용 가능한 API 목록 조회
+### GET /docs — List available APIs
 
-어떤 API가 있는지 모를 때 이 엔드포인트를 호출한다.
+Call this endpoint when you don't know which APIs exist.
 
-**인증**: 불필요
+**Authentication**: Not required
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `category` | string | X | 필터: `auth`, `user`, `post`, `comment`, `file`, `site`, `category`, `notification`, `search` |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `category` | string | X | Filter: `auth`, `user`, `post`, `comment`, `file`, `site`, `category`, `notification`, `search` |
 
 ```bash
-# 전체 API 문서
+# Full API documentation
 curl -s https://withcenter.com/api/v1/docs \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 
-# 카테고리별 필터링
+# Filter by category
 curl -s "https://withcenter.com/api/v1/docs?category=post" \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```

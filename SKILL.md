@@ -1,187 +1,187 @@
 ---
 name: korea
-description: "Korea SNS(withcenter.com) REST API를 통한 완전한 콘텐츠 관리. API 키 기반 인증(Authorization: Bearer). 회원가입/로그인/프로필 수정, 게시글 CRUD, 댓글 CRUD, 파일(이미지) 업로드, 사이트/카테고리 조회 및 관리, 좋아요/북마크/리액션, 알림, 검색을 지원한다. 외부 프로그램·AI·소프트웨어에서 Korea SNS에 콘텐츠를 생성·수정·삭제하기 위한 완전한 API 가이드. Claude가 다음 작업 수행 시 사용: (1) Korea SNS 회원가입/로그인/API 키 획득 (2) 사용자 프로필 수정/아바타 업로드 (3) 게시글 생성/수정/삭제/목록 조회 (4) 댓글 생성/수정/삭제 (5) 이미지·파일 업로드 후 게시글/댓글에 첨부 (6) 사이트 목록/카테고리 트리 조회 (7) 좋아요/북마크/리액션 토글 (8) 알림 조회/검색 (9) withcenter.com API 호출 (10) API 문서 자동 검색(GET /docs). 키워드: Korea SNS, withcenter, 게시글, 포스트, 글쓰기, 글 등록, 글 수정, 글 삭제, 댓글, 코멘트, 회원가입, 로그인, 프로필, 아바타, 파일 업로드, 이미지, 카테고리, 사이트, 좋아요, 북마크, 리액션, 알림, 검색, API, api_key"
+description: "Complete content management via Korea SNS (withcenter.com) REST API. API key based authentication (Authorization: Bearer). Supports user registration/login/profile updates, post CRUD, comment CRUD, file (image) uploads, site/category lookup and management, likes/bookmarks/reactions, notifications, and search. A complete API guide for external programs, AI, and software to create, update, and delete content on Korea SNS. Use when Claude performs the following tasks: (1) Korea SNS registration/login/API key retrieval (2) User profile update/avatar upload (3) Post create/update/delete/list (4) Comment create/update/delete (5) Upload images and files and attach them to posts/comments (6) Site list/category tree lookup (7) Toggle like/bookmark/reaction (8) Notifications lookup/search (9) withcenter.com API calls (10) Automatic API documentation lookup (GET /docs). Keywords: Korea SNS, withcenter, post, posts, writing, post registration, post update, post deletion, comment, comments, registration, login, profile, avatar, file upload, image, category, site, like, bookmark, reaction, notification, search, API, api_key"
 ---
 
-# Korea SNS — 완전한 콘텐츠 관리 스킬
+# Korea SNS — Complete Content Management Skill
 
-Korea SNS(withcenter.com) REST API를 통해 회원 관리, 게시글/댓글 CRUD, 파일 업로드, 사이트/카테고리 관리 등 모든 콘텐츠 작업을 수행하는 스킬.
+A skill that performs all content tasks such as user management, post/comment CRUD, file upload, and site/category management through the Korea SNS (withcenter.com) REST API.
 
-## API 기본 정보
+## API Basics
 
-| 항목 | 값 |
-|------|-----|
+| Item | Value |
+|------|-------|
 | **Base URL** | `https://withcenter.com/api/v1` |
-| **인증** | `Authorization: Bearer {API_KEY}` 헤더 |
-| **API 키 형식** | `{회원번호}-{md5해시}` (예: `4-a1b2c3d4e5f6...`) |
-| **요청 형식** | JSON: `Content-Type: application/json`, 파일: `multipart/form-data` |
-| **성공 응답** | 단건: `{ "data": {...} }`, 목록: `{ "data": [...], "meta": {...} }` |
-| **에러 응답** | `{ "message": "에러 메시지" }` |
-| **User-Agent** | Cloudflare WAF 차단 방지를 위해 `User-Agent: KoreaSNS-CLI/1.0` 필수 |
+| **Authentication** | `Authorization: Bearer {API_KEY}` header |
+| **API key format** | `{user_id}-{md5_hash}` (e.g., `4-a1b2c3d4e5f6...`) |
+| **Request format** | JSON: `Content-Type: application/json`, files: `multipart/form-data` |
+| **Success response** | Single: `{ "data": {...} }`, list: `{ "data": [...], "meta": {...} }` |
+| **Error response** | `{ "message": "error message" }` |
+| **User-Agent** | `User-Agent: KoreaSNS-CLI/1.0` is required to bypass Cloudflare WAF blocking |
 
-API 키 전달 방법 3가지 (우선순위 순):
-1. **Authorization 헤더** (권장): `Authorization: Bearer {API_KEY}`
-2. **api_key 쿠키**: `Cookie: api_key={API_KEY}`
-3. **쿼리 파라미터**: `?api_key={API_KEY}`
+Three ways to pass the API key (in priority order):
+1. **Authorization header** (recommended): `Authorization: Bearer {API_KEY}`
+2. **api_key cookie**: `Cookie: api_key={API_KEY}`
+3. **Query parameter**: `?api_key={API_KEY}`
 
-## API 문서 자동 검색
+## Automatic API Documentation Lookup
 
-어떤 API가 사용 가능한지 모를 때, 다음 엔드포인트를 호출하여 API 목록을 확인한다:
+When unsure which APIs are available, call the following endpoint to get the list of APIs:
 
 ```bash
-# 전체 API 문서 조회
+# Fetch full API documentation
 curl -s https://withcenter.com/api/v1/docs \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 
-# 카테고리별 필터링 (auth, user, post, comment, file, site, category, notification, search)
+# Filter by category (auth, user, post, comment, file, site, category, notification, search)
 curl -s "https://withcenter.com/api/v1/docs?category=post" \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**항상 작업 전에 API 문서를 확인하여 사용 가능한 엔드포인트를 파악한다.**
+**Always check API documentation before starting work to identify available endpoints.**
 
-## 워크플로우
+## Workflow
 
-### 1단계: API 키 확보
+### Step 1: Obtain an API key
 
-사용자가 API 키를 직접 제공하면 그것을 사용한다.
-API 키가 없고 이메일/비밀번호가 있으면 로그인하여 API 키를 획득한다.
-계정이 없으면 회원가입 후 자동으로 API 키를 획득한다.
+If the user provides an API key directly, use it.
+If there is no API key but an email/password is available, log in to obtain the API key.
+If there is no account, register first and automatically obtain the API key.
 
-**중요: 서브사이트(예: apple.withcenter.com)에서 작업할 때는 반드시 `--base-url`을 해당 서브사이트 URL로 지정한다.**
+**Important: When working on a subsite (e.g., apple.withcenter.com), always set `--base-url` to the subsite URL.**
 
 ```bash
-# 회원가입 (서브사이트에서 — 메인 사이트에서는 가입 불가)
+# Register (on subsite — registration is not allowed on the main site)
 python3 skills/korea/scripts/korea_api.py --api-key "" \
   --base-url "https://apple.withcenter.com/api/v1" \
-  register --email "user@example.com" --password "pass123" --display-name "새사용자"
+  register --email "user@example.com" --password "pass123" --display-name "NewUser"
 
-# 로그인
+# Login
 python3 skills/korea/scripts/korea_api.py --api-key "" \
   --base-url "https://apple.withcenter.com/api/v1" \
   login --email "user@example.com" --password "pass"
 ```
 
-### 2단계: 사이트/카테고리 확인
+### Step 2: Check site/category
 
-게시글 작성 전에 대상 사이트와 카테고리를 확인한다.
+Check the target site and category before writing a post.
 
 ```bash
-# 사이트 목록 조회
+# List sites
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" sites
 
-# 카테고리 트리 조회 (사이트 ID 필요)
+# Fetch category tree (site ID required)
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" categories --site-id 1
 ```
 
-### 3단계: 콘텐츠 작업 실행
+### Step 3: Execute the content task
 
-모든 명령어에 `--base-url "https://<도메인>/api/v1"`을 포함한다.
-아래 예시에서 `{BASE}`는 `https://apple.withcenter.com/api/v1` 같은 서브사이트 URL이다.
+Include `--base-url "https://<domain>/api/v1"` in every command.
+In the examples below, `{BASE}` is a subsite URL such as `https://apple.withcenter.com/api/v1`.
 
 ```bash
-# 게시글 CRUD
-python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" create --title "제목" --content "내용" [--category-id 3]
-python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" update --id {ID} --title "새제목" --content "새내용"
+# Post CRUD
+python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" create --title "Title" --content "Content" [--category-id 3]
+python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" update --id {ID} --title "New title" --content "New content"
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" delete --id {ID}
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" get --id {ID}
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" list [--page 1] [--per-page 10] [--category free]
 
-# 댓글 CRUD
-python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" comment-create --post-id {ID} --content "댓글"
-python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" comment-update --comment-id {ID} --content "수정"
+# Comment CRUD
+python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" comment-create --post-id {ID} --content "Comment"
+python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" comment-update --comment-id {ID} --content "Updated"
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" comment-delete --comment-id {ID}
 
-# 파일 업로드 후 게시글에 첨부
+# Upload a file and attach it to a post
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" upload --file "/path/to/image.jpg"
-# → 반환된 upload ID를 게시글/댓글 생성 시 --upload-ids로 전달
-python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" create --title "사진 게시글" --content "내용" --upload-ids "10,11"
+# → Pass the returned upload ID through --upload-ids when creating a post/comment
+python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" create --title "Photo post" --content "Content" --upload-ids "10,11"
 
-# 프로필 수정
-python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" update-profile --display-name "새이름" --bio "자기소개"
+# Profile update
+python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" update-profile --display-name "New name" --bio "About me"
 
-# 아바타 업로드
+# Avatar upload
 python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" --base-url "{BASE}" upload-avatar --file "/path/to/avatar.jpg"
 ```
 
-### curl 직접 사용 (대안)
+### Using curl directly (alternative)
 
-Cloudflare WAF 차단 방지를 위해 `User-Agent` 헤더를 반드시 포함한다.
+Always include the `User-Agent` header to avoid Cloudflare WAF blocking.
 
 ```bash
-# 게시글 생성
+# Create a post
 curl -s -X POST https://withcenter.com/api/v1/posts \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"title": "제목", "content": "내용", "category_id": 3}'
+  -d '{"title": "Title", "content": "Content", "category_id": 3}'
 
-# 파일 업로드
+# Upload a file
 curl -s -X POST https://withcenter.com/api/v1/files/upload \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
   -F "file=@/path/to/image.jpg"
 
-# 업로드된 파일을 게시글에 첨부
+# Attach the uploaded file to a post
 curl -s -X POST https://withcenter.com/api/v1/posts \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"title": "사진 게시글", "content": "내용", "upload_ids": [10, 11]}'
+  -d '{"title": "Photo post", "content": "Content", "upload_ids": [10, 11]}'
 ```
 
-## 주의사항
+## Notes
 
-1. **User-Agent 필수**: Cloudflare WAF가 User-Agent 없는 요청을 차단한다. curl 사용 시 `-H "User-Agent: KoreaSNS-CLI/1.0"` 필수.
-2. **API 키 보안**: API 키를 로그, 파일, 출력에 노출하지 않는다.
-3. **에러 처리**: 응답에 `message` 필드가 있으면 에러. 사용자에게 전달한다.
-4. **권한**: 수정/삭제는 본인 글 또는 사이트 관리자만 가능.
-5. **파일 업로드 순서**: 파일을 먼저 업로드(POST /files/upload)하여 ID를 받고, 게시글/댓글 생성 시 `upload_ids` 배열로 연결한다.
-6. **멀티테넌트**: 서브사이트에서 작업할 때는 `--base-url "https://<도메인>/api/v1"` 옵션으로 해당 서브사이트 URL을 지정한다. 메인 사이트(withcenter.com)에서는 회원가입/글쓰기가 불가하다.
-7. **API 문서 확인**: 작업 방법을 모르면 `GET /docs`를 호출하여 사용 가능한 API를 확인한다.
+1. **User-Agent required**: Cloudflare WAF blocks requests without a User-Agent. When using curl, `-H "User-Agent: KoreaSNS-CLI/1.0"` is required.
+2. **API key security**: Do not expose the API key in logs, files, or output.
+3. **Error handling**: If the response contains a `message` field, it is an error. Relay it to the user.
+4. **Permissions**: Updates/deletions are allowed only for the author or site administrators.
+5. **File upload order**: Upload the file first (POST /files/upload) to receive an ID, then link it when creating the post/comment via the `upload_ids` array.
+6. **Multitenant**: When working on a subsite, set the subsite URL with the `--base-url "https://<domain>/api/v1"` option. Registration/posting is not allowed on the main site (withcenter.com).
+7. **Check API docs**: When unsure how to perform a task, call `GET /docs` to see the available APIs.
 
-## 전체 API 라우트 빠른 참조
+## Quick reference for all API routes
 
 ```
-GET    /docs                           — API 문서 (JSON, ?category= 필터링)
+GET    /docs                           — API documentation (JSON, filter with ?category=)
 
-POST   /auth/register                  — 회원가입
-POST   /auth/login                     — 로그인
-POST   /auth/logout                    — 로그아웃
+POST   /auth/register                  — Register
+POST   /auth/login                     — Login
+POST   /auth/logout                    — Logout
 
-GET    /me                             — 내 정보 조회
-PATCH  /me                             — 내 정보 수정
-POST   /me/avatar                      — 아바타 업로드
-POST   /me/cover                       — 커버 이미지 업로드
+GET    /me                             — Get my info
+PATCH  /me                             — Update my info
+POST   /me/avatar                      — Upload avatar
+POST   /me/cover                       — Upload cover image
 
-GET    /posts                          — 게시글 목록
-POST   /posts                          — 게시글 생성
-GET    /posts/{id}                     — 게시글 상세
-PUT    /posts/{id}                     — 게시글 수정
-DELETE /posts/{id}                     — 게시글 삭제
+GET    /posts                          — List posts
+POST   /posts                          — Create post
+GET    /posts/{id}                     — Get post details
+PUT    /posts/{id}                     — Update post
+DELETE /posts/{id}                     — Delete post
 
-GET    /posts/{id}/comments            — 댓글 목록
-POST   /posts/{id}/comments            — 댓글 생성
-PATCH  /comments/{id}                  — 댓글 수정
-DELETE /comments/{id}                  — 댓글 삭제
+GET    /posts/{id}/comments            — List comments
+POST   /posts/{id}/comments            — Create comment
+PATCH  /comments/{id}                  — Update comment
+DELETE /comments/{id}                  — Delete comment
 
-POST   /files/upload                   — 파일 업로드 (multipart/form-data)
-DELETE /files/{id}                     — 파일 삭제
+POST   /files/upload                   — Upload file (multipart/form-data)
+DELETE /files/{id}                     — Delete file
 
-GET    /sites                          — 사이트 목록
-GET    /sites/{id}/categories/tree     — 카테고리 트리
+GET    /sites                          — List sites
+GET    /sites/{id}/categories/tree     — Category tree
 
-POST   /posts/{id}/like                — 게시글 좋아요 토글
-POST   /comments/{id}/like             — 댓글 좋아요 토글
-POST   /posts/{id}/bookmark            — 북마크 토글
-POST   /posts/{id}/reactions           — 리액션 토글
+POST   /posts/{id}/like                — Toggle post like
+POST   /comments/{id}/like             — Toggle comment like
+POST   /posts/{id}/bookmark            — Toggle bookmark
+POST   /posts/{id}/reactions           — Toggle reaction
 
-GET    /notifications                  — 알림 목록
-GET    /search                         — 전문 검색
+GET    /notifications                  — List notifications
+GET    /search                         — Full-text search
 ```
 
-## 상세 API 문서
+## Detailed API Documentation
 
-- **인증/사용자 API** (회원가입, 로그인, 프로필 수정, 아바타, 차단): [references/api-auth.md](references/api-auth.md)
-- **콘텐츠 API** (게시글, 댓글, 좋아요, 북마크, 리액션): [references/api-content.md](references/api-content.md)
-- **시스템 API** (파일 업로드, 사이트, 카테고리, 알림, 검색, 신고): [references/api-system.md](references/api-system.md)
+- **Auth/User API** (registration, login, profile update, avatar, blocking): [references/api-auth.md](references/api-auth.md)
+- **Content API** (posts, comments, likes, bookmarks, reactions): [references/api-content.md](references/api-content.md)
+- **System API** (file upload, sites, categories, notifications, search, reports): [references/api-system.md](references/api-system.md)

@@ -1,63 +1,63 @@
-# 인증 + 사용자 API
+# Auth + User API
 
-> 상위 문서: [SKILL.md](../SKILL.md)
+> Parent document: [SKILL.md](../SKILL.md)
 
-## 핵심 개념
+## Core Concepts
 
-Korea SNS는 **API 키 기반 인증**을 사용한다 (PHPSESSID 미사용).
-API 키는 사용자 정보(회원번호, 이메일, 가입일시)와 서버 비밀키를 조합하여 MD5 해시로 동적 생성한다.
+Korea SNS uses **API key based authentication** (no PHPSESSID).
+The API key is dynamically generated as an MD5 hash by combining user information (user ID, email, signup timestamp) with a server secret key.
 
-**API 키 형식**: `{회원번호}-{md5해시}` (예: `42-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4`)
+**API key format**: `{user_id}-{md5_hash}` (e.g., `42-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4`)
 
-## 핵심 로직 — API 키 전달 방법
+## Core Logic — How to Pass the API Key
 
-3가지 방법으로 API 키를 전달할 수 있다 (우선순위 순):
+You can pass the API key in three ways (in priority order):
 
 ```bash
-# 1. Authorization 헤더 (권장 — CLI, Flutter, 외부 앱)
+# 1. Authorization header (recommended — CLI, Flutter, external apps)
 Authorization: Bearer 42-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
 
-# 2. api_key 쿠키 (웹 브라우저 — 로그인 시 자동 설정)
+# 2. api_key cookie (web browser — set automatically on login)
 Cookie: api_key=42-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
 
-# 3. 쿼리 파라미터 (브라우저 URL 직접 입력)
+# 3. Query parameter (direct input in the browser URL)
 GET /api/v1/me?api_key=42-a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4
 ```
 
 ## Base URL
 
 ```
-프로덕션: https://withcenter.com/api/v1
-개발환경: http://localhost:8080/api/v1
+Production:  https://withcenter.com/api/v1
+Development: http://localhost:8080/api/v1
 ```
 
 ---
 
-## 1. 인증 API
+## 1. Authentication API
 
-### POST /auth/register — 회원가입
+### POST /auth/register — Register
 
-새 사용자를 등록하고 자동 로그인한다.
+Register a new user and automatically log in.
 
-**인증**: 불필요
+**Authentication**: Not required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `email` | string | O | 이메일 주소 |
-| `password` | string | O | 비밀번호 (최소 6자) |
-| `display_name` | string | X | 표시 이름 |
-| `site_id` | int | X | 사이트 ID (기본: 현재 사이트) |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | O | Email address |
+| `password` | string | O | Password (at least 6 characters) |
+| `display_name` | string | X | Display name |
+| `site_id` | int | X | Site ID (default: current site) |
 
-**핵심 소스코드**:
+**Core source code**:
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"email": "new@example.com", "password": "pass123", "display_name": "새사용자"}'
+  -d '{"email": "new@example.com", "password": "pass123", "display_name": "NewUser"}'
 ```
 
-**성공 응답 (201)**:
+**Success response (201)**:
 
 ```json
 {
@@ -66,7 +66,7 @@ curl -s -X POST https://withcenter.com/api/v1/auth/register \
     "firebase_uid": "auto-generated-uid",
     "site_id": 0,
     "email": "user@example.com",
-    "display_name": "새사용자",
+    "display_name": "NewUser",
     "username": null,
     "bio": null,
     "photo_url": null,
@@ -81,37 +81,37 @@ curl -s -X POST https://withcenter.com/api/v1/auth/register \
 }
 ```
 
-**에러 응답 (422)**:
+**Error response (422)**:
 
 ```json
-{ "message": "이메일 주소를 입력해주세요." }
-{ "message": "올바른 이메일 형식이 아닙니다." }
-{ "message": "비밀번호는 최소 6자 이상이어야 합니다." }
-{ "message": "이미 등록된 이메일입니다." }
+{ "message": "Please enter an email address." }
+{ "message": "Invalid email format." }
+{ "message": "Password must be at least 6 characters." }
+{ "message": "Email already registered." }
 ```
 
-**비즈니스 규칙**:
-- 서브사이트의 첫 번째 회원가입자는 자동으로 사이트 소유자(owner)로 지정
-- 비밀번호는 bcrypt로 해싱
-- Firebase UID 자동 생성
-- 등록 즉시 `api_key` 쿠키 설정 (자동 로그인)
-- 응답에 `api_key` 필드 포함 — 외부 앱에서 이 값을 저장하여 이후 요청에 사용
+**Business rules**:
+- The first registrant of a subsite is automatically set as the site owner
+- Passwords are hashed with bcrypt
+- Firebase UID is generated automatically
+- The `api_key` cookie is set immediately on registration (automatic login)
+- The response includes an `api_key` field — external apps should store this value for subsequent requests
 
 ---
 
-### POST /auth/login — 로그인
+### POST /auth/login — Login
 
-API 키 쿠키 기반 로그인.
+API key cookie based login.
 
-**인증**: 불필요
+**Authentication**: Not required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `email` | string | O | 이메일 |
-| `password` | string | O | 비밀번호 |
-| `site_id` | int | X | 사이트 ID (기본: 현재 사이트) |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `email` | string | O | Email |
+| `password` | string | O | Password |
+| `site_id` | int | X | Site ID (default: current site) |
 
-**핵심 소스코드**:
+**Core source code**:
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/auth/login \
@@ -120,14 +120,14 @@ curl -s -X POST https://withcenter.com/api/v1/auth/login \
   -d '{"email": "user@example.com", "password": "mypassword"}'
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
   "data": {
     "id": 4,
     "email": "user@example.com",
-    "display_name": "홍길동",
+    "display_name": "John Doe",
     "role": "user",
     "api_key": "4-88594f37e90ca97e4a8d4045fc4e5236",
     "created_at": "2025-03-29T12:00:00Z"
@@ -135,26 +135,26 @@ curl -s -X POST https://withcenter.com/api/v1/auth/login \
 }
 ```
 
-**에러 응답**:
+**Error responses**:
 
 ```json
-{ "message": "이메일과 비밀번호를 입력해주세요." }        // 422
-{ "message": "이메일 또는 비밀번호가 올바르지 않습니다." }  // 401
-{ "message": "탈퇴한 계정입니다." }                      // 401
+{ "message": "Please enter your email and password." }       // 422
+{ "message": "Invalid email or password." }                  // 401
+{ "message": "This account has been deactivated." }          // 401
 ```
 
-**비즈니스 규칙**:
-- Firebase UID가 없으면 자동 생성
-- `api_key` 쿠키 설정 (자동 로그인)
-- 응답에 `api_key` 필드 포함 — 외부 앱에서 이 값을 저장하여 이후 요청에 사용
+**Business rules**:
+- If Firebase UID is missing, it is generated automatically
+- Sets the `api_key` cookie (automatic login)
+- The response includes an `api_key` field — external apps should store this value for subsequent requests
 
 ---
 
-### POST /auth/logout — 로그아웃
+### POST /auth/logout — Logout
 
-`api_key` 쿠키를 삭제한다.
+Deletes the `api_key` cookie.
 
-**인증**: 불필요
+**Authentication**: Not required
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/auth/logout \
@@ -162,15 +162,15 @@ curl -s -X POST https://withcenter.com/api/v1/auth/logout \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**: `{ "data": { "message": "로그아웃 되었습니다." } }`
+**Success response (200)**: `{ "data": { "message": "Logged out." } }`
 
 ---
 
-## 2. 사용자 API
+## 2. User API
 
-### GET /me — 내 정보 조회
+### GET /me — Get my info
 
-**인증**: 필수. API 키 유효성 확인에 사용.
+**Authentication**: Required. Used to verify API key validity.
 
 ```bash
 curl -s https://withcenter.com/api/v1/me \
@@ -178,43 +178,43 @@ curl -s https://withcenter.com/api/v1/me \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**: 사용자 공개 정보 (register 응답과 동일 구조)
+**Success response (200)**: Public user information (same structure as the register response)
 
 ---
 
-### PATCH /me — 내 정보 수정
+### PATCH /me — Update my info
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `display_name` | string | X | 표시 이름 |
-| `bio` | string | X | 자기 소개 |
-| `username` | string | X | 사용자 이름 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `display_name` | string | X | Display name |
+| `bio` | string | X | Biography |
+| `username` | string | X | Username |
 
-**핵심 소스코드**:
+**Core source code**:
 
 ```bash
 curl -s -X PATCH https://withcenter.com/api/v1/me \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"display_name": "새이름", "bio": "안녕하세요!"}'
+  -d '{"display_name": "New name", "bio": "Hello!"}'
 ```
 
-**성공 응답 (200)**: 수정된 사용자 공개 정보
+**Success response (200)**: Updated public user information
 
-**에러 (422)**: `{ "message": "수정할 데이터가 없습니다." }`
+**Error (422)**: `{ "message": "No data to update." }`
 
 ---
 
-### PATCH /me/settings — 사용자 설정 수정
+### PATCH /me/settings — Update user settings
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `settings` | object | O | 설정 키-값 객체 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `settings` | object | O | Settings key-value object |
 
 ```bash
 curl -s -X PATCH https://withcenter.com/api/v1/me/settings \
@@ -226,12 +226,12 @@ curl -s -X PATCH https://withcenter.com/api/v1/me/settings \
 
 ---
 
-### PATCH /me/visibility — 프로필 공개 범위 수정
+### PATCH /me/visibility — Update profile visibility
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 허용 값 |
-|------|------|------|---------|
+| Field | Type | Required | Allowed values |
+|-------|------|----------|----------------|
 | `visibility` | string | O | `public`, `private`, `friends_only` |
 
 ```bash
@@ -244,13 +244,13 @@ curl -s -X PATCH https://withcenter.com/api/v1/me/visibility \
 
 ---
 
-### POST /me/avatar — 아바타 업로드
+### POST /me/avatar — Upload avatar
 
-**인증**: 필수 | **요청**: `multipart/form-data`
+**Authentication**: Required | **Request**: `multipart/form-data`
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `file` | file | O | 이미지 파일 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | file | O | Image file |
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/me/avatar \
@@ -259,7 +259,7 @@ curl -s -X POST https://withcenter.com/api/v1/me/avatar \
   -F "file=@/path/to/avatar.jpg"
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
@@ -279,11 +279,11 @@ curl -s -X POST https://withcenter.com/api/v1/me/avatar \
 
 ---
 
-### POST /me/cover — 커버 이미지 업로드
+### POST /me/cover — Upload cover image
 
-**인증**: 필수 | **요청**: `multipart/form-data`
+**Authentication**: Required | **Request**: `multipart/form-data`
 
-아바타 업로드와 동일한 방식. 응답에 `cover_url` 필드가 포함된다.
+Same approach as avatar upload. The response includes a `cover_url` field.
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/me/cover \
@@ -294,15 +294,15 @@ curl -s -X POST https://withcenter.com/api/v1/me/cover \
 
 ---
 
-### GET /me/bookmarks — 내 북마크 목록
+### GET /me/bookmarks — List my bookmarks
 
-**인증**: 필수
+**Authentication**: Required
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `target_type` | string | X | 필터: `post` 또는 `comment` |
-| `page` | int | X | 페이지 번호 |
-| `per_page` | int | X | 페이지당 항목 수 |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `target_type` | string | X | Filter: `post` or `comment` |
+| `page` | int | X | Page number |
+| `per_page` | int | X | Items per page |
 
 ```bash
 curl -s "https://withcenter.com/api/v1/me/bookmarks?target_type=post&page=1" \
@@ -312,9 +312,9 @@ curl -s "https://withcenter.com/api/v1/me/bookmarks?target_type=post&page=1" \
 
 ---
 
-### GET /me/blocked-users — 내 차단 목록
+### GET /me/blocked-users — List my blocked users
 
-**인증**: 필수
+**Authentication**: Required
 
 ```bash
 curl -s "https://withcenter.com/api/v1/me/blocked-users?page=1" \
@@ -324,32 +324,32 @@ curl -s "https://withcenter.com/api/v1/me/blocked-users?page=1" \
 
 ---
 
-## 3. 사용자 조회/검색
+## 3. User Lookup/Search
 
-### GET /users/search — 사용자 검색
+### GET /users/search — Search users
 
-**인증**: 필수
+**Authentication**: Required
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `q` | string | O | 검색어 (최소 1자) |
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `q` | string | O | Search query (at least 1 character) |
 
 ```bash
-curl -s "https://withcenter.com/api/v1/users/search?q=홍길" \
+curl -s "https://withcenter.com/api/v1/users/search?q=John" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 응답 (200)**:
+**Success response (200)**:
 
 ```json
 {
   "data": [
     {
       "id": 5,
-      "display_name": "홍길동",
+      "display_name": "John Doe",
       "photo_url": "/uploads/5/avatar.jpg",
-      "email": "hong@example.com"
+      "email": "john@example.com"
     }
   ]
 }
@@ -357,9 +357,9 @@ curl -s "https://withcenter.com/api/v1/users/search?q=홍길" \
 
 ---
 
-### GET /users/{id} — 사용자 프로필 조회
+### GET /users/{id} — Get user profile
 
-**인증**: 불필요
+**Authentication**: Not required
 
 ```bash
 curl -s https://withcenter.com/api/v1/users/5 \
@@ -368,9 +368,9 @@ curl -s https://withcenter.com/api/v1/users/5 \
 
 ---
 
-### GET /users/by-uid — Firebase UID로 조회
+### GET /users/by-uid — Look up by Firebase UID
 
-**인증**: 불필요
+**Authentication**: Not required
 
 ```bash
 curl -s "https://withcenter.com/api/v1/users/by-uid?uid=firebase-uid-123" \
@@ -379,33 +379,33 @@ curl -s "https://withcenter.com/api/v1/users/by-uid?uid=firebase-uid-123" \
 
 ---
 
-## 4. 차단 API
+## 4. Block API
 
-### POST /users/{id}/block — 사용자 차단
+### POST /users/{id}/block — Block a user
 
-**인증**: 필수
+**Authentication**: Required
 
-| 필드 | 타입 | 필수 | 설명 |
-|------|------|------|------|
-| `reason` | string | X | 차단 사유 |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reason` | string | X | Block reason |
 
 ```bash
 curl -s -X POST https://withcenter.com/api/v1/users/10/block \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer {API_KEY}" \
   -H "User-Agent: KoreaSNS-CLI/1.0" \
-  -d '{"reason": "스팸 메시지"}'
+  -d '{"reason": "Spam messages"}'
 ```
 
-**에러 (422)**:
-- `"자기 자신을 차단할 수 없습니다."`
-- `"이미 차단한 사용자입니다."`
+**Error (422)**:
+- `"You cannot block yourself."`
+- `"User is already blocked."`
 
 ---
 
-### DELETE /users/{id}/block — 차단 해제
+### DELETE /users/{id}/block — Unblock a user
 
-**인증**: 필수
+**Authentication**: Required
 
 ```bash
 curl -s -X DELETE https://withcenter.com/api/v1/users/10/block \
@@ -413,25 +413,25 @@ curl -s -X DELETE https://withcenter.com/api/v1/users/10/block \
   -H "User-Agent: KoreaSNS-CLI/1.0"
 ```
 
-**성공 (200)**: `{ "data": { "message": "차단이 해제되었습니다." } }`
+**Success (200)**: `{ "data": { "message": "Block removed." } }`
 
 ---
 
-## 응답 형식
+## Response Format
 
-| 상태 | 구조 |
-|------|------|
-| 성공 (단건) | `{ "data": { ... } }` |
-| 성공 (목록) | `{ "data": [...], "meta": { "current_page", "per_page", "total", "last_page" } }` |
-| 에러 | `{ "message": "에러 메시지" }` |
+| Status | Structure |
+|--------|-----------|
+| Success (single) | `{ "data": { ... } }` |
+| Success (list) | `{ "data": [...], "meta": { "current_page", "per_page", "total", "last_page" } }` |
+| Error | `{ "message": "error message" }` |
 
-## HTTP 상태 코드
+## HTTP Status Codes
 
-| 코드 | 의미 |
-|------|------|
-| 200 | 성공 |
-| 201 | 생성 성공 |
-| 401 | 인증 필요 / 유효하지 않은 API 키 |
-| 403 | 권한 없음 |
-| 404 | 리소스 없음 |
-| 422 | 유효성 검증 실패 |
+| Code | Meaning |
+|------|---------|
+| 200 | Success |
+| 201 | Created |
+| 401 | Authentication required / invalid API key |
+| 403 | Forbidden |
+| 404 | Resource not found |
+| 422 | Validation failure |
