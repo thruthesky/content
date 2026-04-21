@@ -379,14 +379,12 @@ def cmd_banner_create(args):
 
     # Optional scalar fields — only send when the caller passed them.
     for attr, key in (
-        ("banner_type", "banner_type"),
         ("category_id", "category_id"),
         ("subtitle", "subtitle"),
         ("click_url", "click_url"),
         ("content", "content"),
         ("notes", "notes"),
         ("sort_order", "sort_order"),
-        ("between_interval", "between_interval"),
         ("begin_at", "begin_at"),
         ("end_at", "end_at"),
     ):
@@ -420,14 +418,12 @@ def cmd_banner_update(args):
     for attr, key in (
         ("title", "title"),
         ("position", "position"),
-        ("banner_type", "banner_type"),
         ("category_id", "category_id"),
         ("subtitle", "subtitle"),
         ("click_url", "click_url"),
         ("content", "content"),
         ("notes", "notes"),
         ("sort_order", "sort_order"),
-        ("between_interval", "between_interval"),
         ("begin_at", "begin_at"),
         ("end_at", "end_at"),
     ):
@@ -573,8 +569,6 @@ def main():
     # Banner ads — admin CRUD (per sub-site; set --base-url to the sub-site host).
     def _add_banner_optional_fields(parser, for_create: bool):
         """Flags shared between banner-create and banner-update."""
-        parser.add_argument("--banner-type", choices=["large", "small", "between"],
-                            help="Only meaningful for position=forum; default 'large' on create")
         parser.add_argument("--category-id", type=int,
                             help="Required when position=forum")
         parser.add_argument("--subtitle")
@@ -582,8 +576,6 @@ def main():
         parser.add_argument("--content", help="Rich text shown on /ad/show")
         parser.add_argument("--notes", help="Admin-only internal notes")
         parser.add_argument("--sort-order", type=int)
-        parser.add_argument("--between-interval", type=int,
-                            help="For banner_type=between: show the ad every N posts (default 5)")
         parser.add_argument("--begin-at", help="ISO timestamp; active only if both begin-at and end-at bracket now")
         parser.add_argument("--end-at", help="ISO timestamp")
         for cf in ("telegram", "phone", "kakao", "email", "facebook", "whatsapp", "viber"):

@@ -72,7 +72,7 @@ python3 skills/korea/scripts/korea_api.py --api-key "{KEY}" \
 For every banner in `data[]`, show one row:
 
 ```
-#{id} | {position}/{banner_type} | {title}
+#{id} | {position} | {title}
        {begin_at} → {end_at}   [ACTIVE | SCHEDULED | EXPIRED | NO-DATES]
        click_url: {click_url}   click_count: {click_count}
 ```
@@ -86,5 +86,5 @@ Typical errors to relay: `401 Unauthorized.` (no/bad key), `403 Forbidden.` (not
 ## Notes
 
 - The list is **admin-scoped** — it includes expired and soft-deleted-never banners too, sorted by `sort_order ASC, id DESC`. The **active-render** sort (duration-weighted) is a separate server-side query that this endpoint does not expose.
-- Header / sidebar ignore `banner_type` in rendering — you may still see mixed types in the list, but they all render the same way (image-only).
+- All banners render as a single image regardless of position.
 - Each returned row also carries two arrays that are worth surfacing if the user is auditing: `attachments` (admin-internal files) and `advertiser_attachments` (public downloads on `/ad/show`).

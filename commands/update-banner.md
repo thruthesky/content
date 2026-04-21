@@ -64,9 +64,9 @@ Field ↔ flag mapping:
 | `click_url` | `--click-url "…"` |
 | `content` | `--content "…"` |
 | `notes` | `--notes "…"` |
-| `position` / `banner_type` / `category_id` | `--position`, `--banner-type`, `--category-id` |
+| `position` / `category_id` | `--position`, `--category-id` |
 | `begin_at`, `end_at` | `--begin-at "…"`, `--end-at "…"` (pass `""` to clear) |
-| `between_interval`, `sort_order` | `--between-interval`, `--sort-order` |
+| `sort_order` | `--sort-order` |
 | 7× `contact_*` | `--contact-telegram`, `--contact-phone`, …  (pass `""` to clear) |
 | display image | `--upload-ids "new_id"` (replaces current image) |
 | admin attachments | `--attachment-ids "id1,id2"` (appends) |

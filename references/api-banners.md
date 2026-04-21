@@ -6,7 +6,7 @@
 
 Banner ads are managed exclusively by sub-site administrators. Every endpoint except the public click tracker requires an admin API key **for the sub-site the caller is targeting**. The system has no "active toggle" — a banner is live only while the current time sits between `begin_at` and `end_at` (both must be set). `DELETE` is soft (sets `deleted_at`).
 
-There are three **positions** where banners render, and three **types** controlling the visual treatment. Only the `forum` position honors the full type matrix — `header` and `sidebar` render every banner as an image regardless of type.
+There are three **positions** where banners render (`header`, `sidebar`, `forum`). Every banner renders as a single image regardless of position — there is no type system.
 
 ## Core Logic
 
@@ -30,19 +30,14 @@ https://<subdomain>.withcenter.com/api/v1
 
 ---
 
-## Position × Type Matrix
+## Position Matrix
 
-The combination of `position` and `banner_type` decides where and how the banner renders.
-
-| `position` | `banner_type` | `category_id` | Where it renders | Notes |
-|------------|---------------|---------------|------------------|-------|
-| `header`   | any (ignored) | — (null)      | Two slots left/right of the search bar at the top of the site; 3.5 s rotation, shared pool across both slots | Canonical header ad. `banner_type` is stored but ignored by the renderer. |
-| `sidebar`  | any (ignored) | — (null)      | Floating left/right columns on wide viewports, 120×120 squares, interleaved (idx 0 → left, 1 → right, …) | Canonical sidebar ad. `banner_type` is stored but ignored by the renderer. |
-| `forum`    | `large`       | **required**  | Image grid above the post list on the category page; 100×100 squares, auto-wrap | Image-only (no text). Use for brand/hero ads inside a category. |
-| `forum`    | `small`       | **required**  | Vertical list below the large grid; 64×42 thumbnail + title + subtitle | Use when you need headline text alongside the image. |
-| `forum`    | `between`     | **required**  | Injected between posts in the category list every `between_interval` posts | `between_interval` defaults to `5`, i.e. one ad after every 5th post. |
-| `forum`    | —             | missing       | N/A                                                                 | Server returns `422`. |
-| `header` / `sidebar` | `small` or `between` | —   | Silently treated as `large` (type is ignored)                       | Avoid — confuses admins later reading the list. |
+| `position` | `category_id` | Where it renders | Notes |
+|------------|---------------|------------------|-------|
+| `header`   | — (null)      | Two slots left/right of the search bar at the top of the site; 5 s rotation, shared pool across both slots | Image-only banner. |
+| `sidebar`  | — (null)      | Floating left/right columns on wide viewports, 120×120 squares, interleaved (idx 0 → left, 1 → right, …) | Image-only banner. Hidden on mobile. |
+| `forum`    | **required**  | Image grid above the post list on the category page; 100×100 squares, auto-wrap, 3.5 s rotation | Image-only banner scoped to a forum category. |
+| `forum`    | missing       | N/A                                                                 | Server returns `422`. |
 
 **Sort order of active banners:** `(end_at - begin_at) DESC, id DESC` — longer campaigns sort first (duration-weighted rotation). `sort_order` is stored on the row but is not used by the active-render queries.
 
@@ -51,9 +46,8 @@ The combination of `position` and `banner_type` decides where and how the banner
 | Enum | File | Values |
 |------|------|--------|
 | `BannerPosition` | `src/Enums/BannerPosition.php` | `header`, `sidebar`, `forum` |
-| `BannerType`     | `src/Enums/BannerType.php`     | `large`, `small`, `between` |
 
-Send the raw string value in JSON (`"position": "header"`, `"banner_type": "large"`). The server calls `Enum::from()` and will `ValueError` on an unknown string — the caller sees a generic `500`, so validate client-side.
+Send the raw string value in JSON (`"position": "header"`). The server calls `Enum::from()` and will `ValueError` on an unknown string — the caller sees a generic `500`, so validate client-side.
 
 ---
 
@@ -90,7 +84,6 @@ curl -s "https://apple.withcenter.com/api/v1/admin/banners?position=forum&catego
       "site_id": 7,
       "category_id": null,
       "position": "header",
-      "banner_type": "large",
       "title": "Spring Sale",
       "subtitle": null,
       "image_url": "/uploads/7/banner-hero.jpg",
@@ -98,7 +91,6 @@ curl -s "https://apple.withcenter.com/api/v1/admin/banners?position=forum&catego
       "content": null,
       "notes": "Paid by ACME Corp, receipt in attachments",
       "sort_order": 0,
-      "between_interval": 5,
       "click_count": 341,
       "begin_at": "2026-04-20 00:00:00+00",
       "end_at":   "2026-05-20 00:00:00+00",
@@ -145,16 +137,14 @@ curl -s https://apple.withcenter.com/api/v1/admin/banners/42 \
 
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
-| `title` | string | **O** | — | Admin-visible label; also shown on `small` and `between` renders |
+| `title` | string | **O** | — | Admin-visible label |
 | `position` | string | **O** | — | `header`, `sidebar`, `forum` |
 | `category_id` | int | O (when `position=forum`) | null | Forum category |
-| `banner_type` | string | X | `large` | `large`, `small`, `between`. Only meaningful for `position=forum` |
-| `subtitle` | string | X | null | Shown on `small` / `between` renders |
+| `subtitle` | string | X | null | Optional sub-line |
 | `click_url` | string | X | null | Destination on click; opened in a new tab |
 | `content` | string | X | null | Rich text for the `/ad/show` detail page |
 | `notes` | string | X | null | Admin-only; never rendered to visitors |
 | `sort_order` | int | X | 0 | Stored but **not** used by render ordering — display sort is duration-weighted |
-| `between_interval` | int | X | 5 | For `banner_type=between`: show this ad after every N posts |
 | `begin_at` | string | X | null | ISO timestamp. Banner is active only if both `begin_at` and `end_at` are set and `NOW()` is in range |
 | `end_at` | string | X | null | ISO timestamp |
 | `contact_telegram` | string | X | null | Advertiser Telegram handle; empty string is stored as null |
@@ -206,7 +196,7 @@ curl -s -X POST https://apple.withcenter.com/api/v1/admin/banners \
 
 Partial update with `array_key_exists` semantics: **omit a key to leave the field untouched**, set a nullable field to `null` or `""` to clear it. `is_active` is not in the whitelist and is silently ignored.
 
-Accepted fields (same as create, minus `is_active`): `title`, `subtitle`, `click_url`, `content`, `notes`, `sort_order`, `between_interval`, `begin_at`, `end_at`, `position`, `banner_type`, `category_id`, 7× `contact_*`, `upload_ids`, `attachment_ids`, `advertiser_attachment_ids`.
+Accepted fields (same as create, minus `is_active`): `title`, `subtitle`, `click_url`, `content`, `notes`, `sort_order`, `begin_at`, `end_at`, `position`, `category_id`, 7× `contact_*`, `upload_ids`, `attachment_ids`, `advertiser_attachment_ids`.
 
 ```bash
 # Rename only
