@@ -18,10 +18,29 @@ Whenever the task requires producing, gathering, or verifying **real-world infor
 **How to delegate**:
 
 1. Read [references/content-research-writer.md](references/content-research-writer.md) and follow its workflow (outline → research → draft → citations → section feedback → polish) for anything that involves producing external/real-world content.
-2. Once the content is produced and ready to be stored on Korea SNS, return to **this** skill's API workflow (post create/update, file upload, etc.) to publish it via `https://withcenter.com/api/v1`.
-3. Keep the writer's voice rules, citation format, and research-verification guidance from the reference intact — do not shortcut them.
+2. Once the draft is produced, **run it through the `humanizer` reference below** before publishing — this is a mandatory polish pass, not optional.
+3. After humanization, return to **this** skill's API workflow (post create/update, file upload, etc.) to publish it via `https://withcenter.com/api/v1`.
+4. Keep the writer's voice rules, citation format, and research-verification guidance from the reference intact — do not shortcut them.
 
-In short: **`content-research-writer` produces the content, this `content` skill publishes it.**
+## 🔴 AI-Pattern Removal — Delegate to `humanizer`
+
+Before publishing any draft produced by `content-research-writer` (or any other source), **always run the text through the `humanizer` reference** to strip AI writing tells — inflated symbolism, promotional language, superficial `-ing` analyses, vague attributions, em-dash overuse, rule of three, AI vocabulary words, passive voice, negative parallelisms, filler phrases, curly quotes, emoji decorations, etc.
+
+- [references/humanizer.md](references/humanizer.md)
+
+**When to run humanizer** (mandatory):
+
+- After `content-research-writer` finishes a draft and before the content hits the Korea SNS API.
+- When the user pastes existing copy and asks to publish, edit, or rewrite it.
+- When the user explicitly says "humanize", "make this sound human", "remove AI tone", or similar.
+
+**How to delegate**:
+
+1. Read [references/humanizer.md](references/humanizer.md) and follow its full process: identify AI patterns → rewrite → final anti-AI audit pass ("What makes the below so obviously AI generated?" → revise).
+2. If the user supplied a writing sample, perform the voice calibration step described in the reference before rewriting.
+3. Only after the humanized final version is approved should you publish via this skill's API workflow.
+
+In short: **`content-research-writer` drafts → `humanizer` polishes → this `content` skill publishes.**
 
 ## API Basics
 
